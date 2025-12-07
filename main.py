@@ -170,13 +170,14 @@ class EMOMApp(ctk.CTk):
         # --- Variables ---
         self.total_rounds_var = ctk.StringVar(value="10")
         self.round_timer_var = ctk.StringVar(value="60")
+        self.rest_time_var = ctk.StringVar(value="0")
         self.save_history_var = ctk.BooleanVar(value=True)
         self.notes_var = ctk.StringVar()
         
         self.current_round = 0
         self.time_left = 0
         self.is_running = False
-        self.is_running = False
+        self.is_rest_phase = False # Track if we are in rest phase
         self.is_paused = False
         self.timer_job = None
         self.start_time = None
@@ -192,7 +193,7 @@ class EMOMApp(ctk.CTk):
         # 1. Inputs Frame
         self.input_frame = ctk.CTkFrame(self)
         self.input_frame.grid(row=0, column=0, padx=20, pady=20, sticky="ew")
-        self.input_frame.grid_columnconfigure((0, 1), weight=1)
+        self.input_frame.grid_columnconfigure((0, 1, 2), weight=1)
 
         # Rounds Input
         self.lbl_rounds = ctk.CTkLabel(self.input_frame, text="Total Rounds:")
@@ -201,17 +202,23 @@ class EMOMApp(ctk.CTk):
         self.entry_rounds.grid(row=1, column=0, padx=10, pady=(5, 10))
 
         # Timer Input
-        self.lbl_timer = ctk.CTkLabel(self.input_frame, text="Round Timer (sec):")
+        self.lbl_timer = ctk.CTkLabel(self.input_frame, text="Work (sec):")
         self.lbl_timer.grid(row=0, column=1, padx=10, pady=(10, 0))
-        self.entry_timer = ctk.CTkEntry(self.input_frame, textvariable=self.round_timer_var, width=100)
+        self.entry_timer = ctk.CTkEntry(self.input_frame, textvariable=self.round_timer_var, width=80)
         self.entry_timer.grid(row=1, column=1, padx=10, pady=(5, 10))
+
+        # Rest Input
+        self.lbl_rest = ctk.CTkLabel(self.input_frame, text="Rest (sec):")
+        self.lbl_rest.grid(row=0, column=2, padx=10, pady=(10, 0))
+        self.entry_rest = ctk.CTkEntry(self.input_frame, textvariable=self.rest_time_var, width=80)
+        self.entry_rest.grid(row=1, column=2, padx=10, pady=(5, 10))
 
         # Notes Input
         self.lbl_notes = ctk.CTkLabel(self.input_frame, text="Notes (Optional):", font=("Arial", 14))
         self.lbl_notes.grid(row=2, column=0, padx=10, pady=(5, 10), sticky="e")
         
         self.entry_notes = ctk.CTkEntry(self.input_frame, textvariable=self.notes_var, width=150)
-        self.entry_notes.grid(row=2, column=1, padx=10, pady=(5, 10), sticky="w")
+        self.entry_notes.grid(row=2, column=1, columnspan=2, padx=10, pady=(5, 10), sticky="w")
 
         # 2. Display Area
         self.display_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -295,12 +302,26 @@ class EMOMApp(ctk.CTk):
             self.time_left -= 1
             self.timer_job = self.after(1000, self.update_timer)
         else:
-            # Round finished (time_left == 0)
-            # If we reached 0, the next tick should start new round or end
-            self.next_round()
+            # Round started/Phase finished (time_left == 0)
+            if not self.is_rest_phase:
+                 # Check if we need to switch to rest
+                 if self.rest_duration > 0:
+                     self.start_rest_phase()
+                 else:
+                     self.next_round()
+            else:
+                # Rest phase done, go to next round
+                self.next_round()
+
+    def start_rest_phase(self):
+        self.is_rest_phase = True
+        self.time_left = self.rest_duration
+        self.lbl_status.configure(text=f"Rest Time! (Round {self.current_round})", text_color="#F59E0B") # Amber
+        print(f"--- Rest Phase: {self.rest_duration}s ---")
+        self.after(1000, self.update_timer)
 
     def next_round(self):
-        # Time ran out for current round.
+        # Time ran out for current round (and rest if applicable).
         if self.current_round < self.total_rounds:
             self.current_round += 1
             # "90 second timer would start at 89 and go down to zero" -> User logic explanation.
@@ -315,6 +336,9 @@ class EMOMApp(ctk.CTk):
             # Let's stick to standard timer behavior: Show 90, wait 1s, Show 89. 
             # BUT if user insists "starts at 89", maybe they want 0-indexed logic?
             # Let's stick to my current implementation: Show N, wait 1s, Show N-1.
+            
+            # Update: New logic with Rest.
+            self.is_rest_phase = False
             # Wait, let's re-read: "For example: 90 second timer would start at 89 and go down to zero."
             # This implies the first tick happens basically immediately or the range is [89, 0].
             # Range [89, 0] is 90 integers. So that matches "90 second timer".
@@ -344,6 +368,7 @@ class EMOMApp(ctk.CTk):
         self.btn_start.configure(state="normal", text="START AGAIN", command=self.start_workout)
         self.entry_rounds.configure(state="normal")
         self.entry_timer.configure(state="normal")
+        self.entry_rest.configure(state="normal")
         print("Workout Completed.")
 
     def reset_workout(self):
@@ -368,6 +393,7 @@ class EMOMApp(ctk.CTk):
         self.btn_start.configure(state="normal", text="START WORKOUT", command=self.start_workout)
         self.entry_rounds.configure(state="normal")
         self.entry_timer.configure(state="normal")
+        self.entry_rest.configure(state="normal")
         print("Workout Reset.")
         
     def start_workout(self):
@@ -378,6 +404,11 @@ class EMOMApp(ctk.CTk):
         try:
             self.total_rounds = int(self.total_rounds_var.get())
             self.round_duration = int(self.round_timer_var.get())
+            
+            # Handle empty/invalid rest input as 0
+            rest_val = self.rest_time_var.get().strip()
+            self.rest_duration = int(rest_val) if rest_val else 0
+            
         except ValueError:
             self.lbl_status.configure(text="Error: Invalid Input", text_color="red")
             return
@@ -387,6 +418,7 @@ class EMOMApp(ctk.CTk):
         self.time_left = self.round_duration         
         
         self.is_running = True
+        self.is_rest_phase = False
         self.is_paused = False
         self.start_time = datetime.datetime.now()
         
@@ -394,9 +426,10 @@ class EMOMApp(ctk.CTk):
         
         self.entry_rounds.configure(state="disabled")
         self.entry_timer.configure(state="disabled")
+        self.entry_rest.configure(state="disabled")
         self.lbl_status.configure(text="Workout In Progress", text_color="white")
         
-        print(f"Starting Workout: {self.total_rounds} Rounds, {self.round_duration}s per round. Starting at {self.time_left}.")
+        print(f"Starting Workout: {self.total_rounds} Rounds, Work: {self.round_duration}s, Rest: {self.rest_duration}s. Starting at {self.time_left}.")
         
         self.update_timer()
 
@@ -410,7 +443,8 @@ class EMOMApp(ctk.CTk):
             
             # If round_duration or other props aren't set, default to 0
             duration = getattr(self, 'round_duration', 0)
-            total_time = completed_rounds * duration
+            rest = getattr(self, 'rest_duration', 0)
+            total_time = completed_rounds * (duration + rest)
             
             # Format: Start Time, End Time, Completed Rounds, Round Timer, Total Time, Notes
             if self.start_time:
@@ -427,7 +461,8 @@ class EMOMApp(ctk.CTk):
                 completed_rounds,
                 duration,
                 total_time,
-                notes
+                notes,
+                rest
             ]
             
             filename = "workout_history.csv"
@@ -436,7 +471,8 @@ class EMOMApp(ctk.CTk):
             with open(filename, mode='a', newline='') as f:
                 writer = csv.writer(f)
                 if write_header:
-                    writer.writerow(["start_time", "end_time", "total_rounds_completed", "round_timer", "total_time", "workout_notes"])
+                     # This should match the manual header update we did or creating new file
+                    writer.writerow(["start_time", "end_time", "total_rounds_completed", "round_timer_sec", "total_time_sec", "workout_notes", "rest_time_sec"])
                 writer.writerow(row)
                 
             print(f"History saved: {row}")
