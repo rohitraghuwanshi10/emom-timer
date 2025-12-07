@@ -4,6 +4,7 @@ from PIL import Image, ImageTk
 import os
 import datetime
 import storage
+import subprocess
 from history_ui import HistoryWindow
 
 # --- Modern "Liquid" / iOS Dark Mode Theme ---
@@ -213,11 +214,30 @@ class EMOMApp(ctk.CTk):
             else:
                 self.next_round()
 
+    def play_sound(self, sound_name="Tink", count=1):
+        def _play():
+            try:
+                # Use local sounds directory relative to this script
+                base_path = os.path.dirname(os.path.abspath(__file__))
+                sound_file = os.path.join(base_path, "sounds", f"{sound_name}.aiff")
+                
+                if os.path.exists(sound_file):
+                    for _ in range(count):
+                        subprocess.run(["afplay", sound_file])
+                else:
+                    print(f"Sound file not found: {sound_file}")
+            except Exception as e:
+                print(f"Error playing sound: {e}")
+
+        # Run in a separate thread to not block UI
+        threading.Thread(target=_play, daemon=True).start()
+
     def start_rest_phase(self):
         self.is_rest_phase = True
         self.time_left = self.rest_duration
         self.lbl_status.configure(text="REST TIME", text_color=ACCENT_ORANGE)
         self.lbl_main_timer.configure(text_color=ACCENT_ORANGE)
+        self.play_sound("Hero", 1) # Warm, pleasant chime for rest
         self.after(1000, self.update_timer)
 
     def next_round(self):
@@ -228,6 +248,7 @@ class EMOMApp(ctk.CTk):
             
             self.lbl_status.configure(text="WORK", text_color=ACCENT_GREEN)
             self.lbl_main_timer.configure(text_color=TEXT_COLOR)
+            self.play_sound("Glass", 1) # Exciting 'ding' for work start
             
             self.after(1000, self.update_timer)
             
@@ -298,6 +319,7 @@ class EMOMApp(ctk.CTk):
         self.lbl_status.configure(text="WORK", text_color=ACCENT_GREEN)
         self.lbl_current_round.configure(text=f"ROUND 1 / {self.total_rounds}")
         
+        self.play_sound("Glass", 1) # Single beep for first round
         self.update_timer()
 
     def save_history(self, completed_rounds):
