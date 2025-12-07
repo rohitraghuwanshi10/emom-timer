@@ -8,3 +8,8 @@ __pycache__/
 
 # App Data
 workout_history.csv
+
+# PyInstaller
+build/
+dist/
+*.spec

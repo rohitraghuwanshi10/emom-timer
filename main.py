@@ -2,6 +2,7 @@ import customtkinter as ctk
 import threading
 from PIL import Image, ImageTk
 import os
+import sys
 import datetime
 import storage
 import subprocess
@@ -42,7 +43,12 @@ class EMOMApp(ctk.CTk):
         
         # Load Icon
         try:
-            icon_path = os.path.join(os.path.dirname(__file__), "icon.png")
+            if hasattr(sys, '_MEIPASS'):
+                base_path = sys._MEIPASS
+            else:
+                base_path = os.path.dirname(os.path.abspath(__file__))
+            
+            icon_path = os.path.join(base_path, "icon.png")
             if os.path.exists(icon_path):
                 image = Image.open(icon_path)
                 self.iconphoto(True, ImageTk.PhotoImage(image))
@@ -217,8 +223,12 @@ class EMOMApp(ctk.CTk):
     def play_sound(self, sound_name="Tink", count=1):
         def _play():
             try:
-                # Use local sounds directory relative to this script
-                base_path = os.path.dirname(os.path.abspath(__file__))
+                # PyInstaller creates a temp folder and stores path in _MEIPASS
+                if hasattr(sys, '_MEIPASS'):
+                    base_path = sys._MEIPASS
+                else:
+                    base_path = os.path.dirname(os.path.abspath(__file__))
+                
                 sound_file = os.path.join(base_path, "sounds", f"{sound_name}.aiff")
                 
                 if os.path.exists(sound_file):
