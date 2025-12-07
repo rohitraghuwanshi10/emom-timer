@@ -96,8 +96,8 @@ class HistoryWindow(ctk.CTkToplevel):
                 start_dt = datetime.datetime.fromisoformat(row[0])
                 date_str = start_dt.strftime("%Y-%m-%d")
                 
-                # row[4] is total_time in seconds -> convert to minutes
-                duration_min = float(row[4]) / 60.0
+                # row[5] is total_time in seconds -> convert to minutes
+                duration_min = float(row[5]) / 60.0
                 date_map[date_str].append(duration_min)
             
             if not date_map:
@@ -169,7 +169,7 @@ class EMOMApp(ctk.CTk):
 
         # --- Variables ---
         self.total_rounds_var = ctk.StringVar(value="10")
-        self.round_timer_var = ctk.StringVar(value="60")
+        self.work_time_var = ctk.StringVar(value="60")
         self.rest_time_var = ctk.StringVar(value="0")
         self.save_history_var = ctk.BooleanVar(value=True)
         self.notes_var = ctk.StringVar()
@@ -204,7 +204,7 @@ class EMOMApp(ctk.CTk):
         # Timer Input
         self.lbl_timer = ctk.CTkLabel(self.input_frame, text="Work (sec):")
         self.lbl_timer.grid(row=0, column=1, padx=10, pady=(10, 0))
-        self.entry_timer = ctk.CTkEntry(self.input_frame, textvariable=self.round_timer_var, width=80)
+        self.entry_timer = ctk.CTkEntry(self.input_frame, textvariable=self.work_time_var, width=80)
         self.entry_timer.grid(row=1, column=1, padx=10, pady=(5, 10))
 
         # Rest Input
@@ -403,7 +403,7 @@ class EMOMApp(ctk.CTk):
 
         try:
             self.total_rounds = int(self.total_rounds_var.get())
-            self.round_duration = int(self.round_timer_var.get())
+            self.round_duration = int(self.work_time_var.get())
             
             # Handle empty/invalid rest input as 0
             rest_val = self.rest_time_var.get().strip()
@@ -460,9 +460,9 @@ class EMOMApp(ctk.CTk):
                 end_time.isoformat(),
                 completed_rounds,
                 duration,
+                rest,
                 total_time,
-                notes,
-                rest
+                notes
             ]
             
             filename = "workout_history.csv"
@@ -472,7 +472,7 @@ class EMOMApp(ctk.CTk):
                 writer = csv.writer(f)
                 if write_header:
                      # This should match the manual header update we did or creating new file
-                    writer.writerow(["start_time", "end_time", "total_rounds_completed", "round_timer_sec", "total_time_sec", "workout_notes", "rest_time_sec"])
+                    writer.writerow(["start_time", "end_time", "total_rounds_completed", "work_time_sec", "rest_time_sec", "total_time_sec", "workout_notes"])
                 writer.writerow(row)
                 
             print(f"History saved: {row}")

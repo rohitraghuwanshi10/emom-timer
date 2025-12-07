@@ -40,7 +40,7 @@ python main.py
 
 ## Data Storage
 Workout data is stored locally in `workout_history.csv`.
-- **Columns**: `start_time`, `end_time`, `total_rounds_completed`, `round_timer_sec`, `total_time_sec`, `workout_notes`, `rest_time_sec`.
+- **Columns**: `start_time`, `end_time`, `total_rounds_completed`, `work_time_sec`, `rest_time_sec`, `total_time_sec`, `workout_notes`.
 
 ## Technologies
 - **UI**: CustomTkinter
