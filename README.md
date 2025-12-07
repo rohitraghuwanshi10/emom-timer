@@ -5,7 +5,7 @@ A modern, python-based EMOM (Every Minute on the Minute) timer application built
 ## Screenshots
 
 <p align="center">
-  <img src="screenshots/EMOM_History.jpg" alt="Main Interface" width="45%">
+  <img src="screenshots/EMOM_Main.jpg" alt="Main Interface" width="45%">
   &nbsp; &nbsp;
   <img src="screenshots/EMOM_History.jpg" alt="History View" width="45%">
 </p>
