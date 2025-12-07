@@ -50,20 +50,42 @@ class HistoryWindow(ctk.CTkToplevel):
             while len(headers) < max_cols:
                  headers.append(f"Column {len(headers)+1}")
 
+        # Header Title Mapping
+        header_map = {
+            "work_time_sec": "Work Time (Sec)",
+            "rest_time_sec": "Rest Time (Sec)",
+            "total_time_sec": "Total Time (HH:MM:SS)"
+        }
+
         for i, h in enumerate(headers):
-            # Convert snake_case to Title Case
-            title = h.replace('_', ' ').title()
+            # Use map or fallback to Title Case
+            title = header_map.get(h, h.replace('_', ' ').title())
             lbl = ctk.CTkLabel(self.table_frame, text=title, font=("Arial", 14, "bold"))
             lbl.grid(row=0, column=i, padx=10, pady=5, sticky="ew")
 
         # Data
         for r_idx, row in enumerate(data[1:], start=1):
             for c_idx, val in enumerate(row):
-                lbl = ctk.CTkLabel(self.table_frame, text=val, font=("Arial", 12))
+                display_text = val
+                # Format Total Time (Index 5)
+                if c_idx == 5:
+                    display_text = self._format_seconds(val)
+                
+                lbl = ctk.CTkLabel(self.table_frame, text=display_text, font=("Arial", 12))
                 lbl.grid(row=r_idx, column=c_idx, padx=10, pady=2, sticky="ew")
         
         # Load Graph
         self.load_graph(data[1:])
+
+    def _format_seconds(self, seconds_str):
+        try:
+            total_seconds = int(float(seconds_str))
+            hours = total_seconds // 3600
+            minutes = (total_seconds % 3600) // 60
+            seconds = total_seconds % 60
+            return f"{hours:02}:{minutes:02}:{seconds:02}"
+        except (ValueError, TypeError):
+            return seconds_str
 
     def load_graph(self, rows):
         # Data Processing
