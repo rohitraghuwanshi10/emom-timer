@@ -1,153 +1,14 @@
 import customtkinter as ctk
-import time
 import threading
 from PIL import Image, ImageTk
 import os
-import csv
 import datetime
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from collections import defaultdict
-import numpy as np
+import storage
+from history_ui import HistoryWindow
 
 # Set appearance mode and default color theme
 ctk.set_appearance_mode("System")  # Modes: "System" (standard), "Dark", "Light"
 ctk.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue"
-
-class HistoryWindow(ctk.CTkToplevel):
-    def __init__(self):
-        super().__init__()
-        self.title("Workout History")
-        self.geometry("800x700")
-        
-        # Configure grid weights
-        self.grid_rowconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)
-        self.grid_columnconfigure(0, weight=1)
-        
-        # Scrollable Frame for Table (Top Half)
-        self.table_frame = ctk.CTkScrollableFrame(self)
-        self.table_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
-        
-        # Frame for Graph (Bottom Half)
-        self.graph_frame = ctk.CTkFrame(self)
-        self.graph_frame.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
-        
-        self.load_history()
-
-    def load_history(self):
-        filename = "workout_history.csv"
-        if not os.path.exists(filename):
-            lbl = ctk.CTkLabel(self.table_frame, text="No history found.", font=("Arial", 16))
-            lbl.pack(pady=20)
-            return
-
-        try:
-            with open(filename, mode='r') as f:
-                reader = csv.reader(f)
-                data = list(reader)
-                
-            if not data:
-                lbl = ctk.CTkLabel(self.table_frame, text="File is empty.", font=("Arial", 16))
-                lbl.pack(pady=20)
-                return
-
-            # Headers
-            headers = data[0]
-            
-            # Detect if data rows have more columns than headers (e.g. added notes later)
-            max_cols = max(len(r) for r in data)
-            if len(headers) < max_cols:
-                # Naive patch: just assume the 6th column is Notes if missing
-                if len(headers) == 5 and max_cols >= 6:
-                    headers.append("workout_notes")
-                else:
-                    # Generic fallback
-                    while len(headers) < max_cols:
-                        headers.append(f"Column {len(headers)+1}")
-
-            for i, h in enumerate(headers):
-                # Convert snake_case to Title Case
-                title = h.replace('_', ' ').title()
-                lbl = ctk.CTkLabel(self.table_frame, text=title, font=("Arial", 14, "bold"))
-                lbl.grid(row=0, column=i, padx=10, pady=5, sticky="ew")
-
-            # Data
-            for r_idx, row in enumerate(data[1:], start=1):
-                for c_idx, val in enumerate(row):
-                    lbl = ctk.CTkLabel(self.table_frame, text=val, font=("Arial", 12))
-                    lbl.grid(row=r_idx, column=c_idx, padx=10, pady=2, sticky="ew")
-            
-            # Load Graph
-            self.load_graph(data[1:])
-                    
-        except Exception as e:
-            lbl = ctk.CTkLabel(self.table_frame, text=f"Error loading history: {e}", text_color="red")
-            lbl.pack(pady=20)
-
-    def load_graph(self, rows):
-        # Data Processing
-        # date_map: {date_str: [duration1, duration2, ...]}
-        date_map = defaultdict(list)
-        
-        try:
-            for row in rows:
-                # row[0] is start_time string ISO format
-                start_dt = datetime.datetime.fromisoformat(row[0])
-                date_str = start_dt.strftime("%Y-%m-%d")
-                
-                # row[5] is total_time in seconds -> convert to minutes
-                duration_min = float(row[5]) / 60.0
-                date_map[date_str].append(duration_min)
-            
-            if not date_map:
-                return
-
-            # Prepare Data for Stacking
-            dates = sorted(date_map.keys())
-            max_workouts = max(len(v) for v in date_map.values())
-            
-            # Prepare series: series[i] is list of values for the i-th workout of each day
-            series_list = []
-            for i in range(max_workouts):
-                series = []
-                for d in dates:
-                    workouts = date_map[d]
-                    if i < len(workouts):
-                        series.append(workouts[i])
-                    else:
-                        series.append(0)
-                series_list.append(series)
-
-            # Plotting
-            fig, ax = plt.subplots(figsize=(5, 3), dpi=100)
-            
-            bottom = [0] * len(dates)
-            colors = plt.cm.viridis(np.linspace(0, 1, max_workouts)) if 'np' in globals() else None 
-            # Fallback colors if numpy not simple
-            
-            for i, series in enumerate(series_list):
-                ax.bar(dates, series, bottom=bottom, label=f'Workout {i+1}')
-                # Update bottom
-                for j in range(len(bottom)):
-                    bottom[j] += series[j]
-
-            ax.set_xlabel("Date")
-            ax.set_ylabel("Total Time (Minutes)")
-            ax.set_title("Daily Workout Time")
-            plt.xticks(rotation=45)
-            
-            plt.tight_layout()
-
-            # Embed in Tkinter
-            canvas = FigureCanvasTkAgg(fig, master=self.graph_frame)
-            canvas.draw()
-            canvas.get_tk_widget().pack(fill="both", expand=True)
-            
-        except Exception as e:
-            print(f"Error generating graph: {e}")
-            lbl = ctk.CTkLabel(self.graph_frame, text=f"Error generating graph: {e}", text_color="red")
-            lbl.pack()
 
 class EMOMApp(ctk.CTk):
     def __init__(self):
@@ -324,31 +185,9 @@ class EMOMApp(ctk.CTk):
         # Time ran out for current round (and rest if applicable).
         if self.current_round < self.total_rounds:
             self.current_round += 1
-            # "90 second timer would start at 89 and go down to zero" -> User logic explanation.
-            # Actually, standard EMOM usually starts at TOP (e.g. 60) then 59...
-            # But user said: "90 second timer would start at 89 and go down to zero."
-            # My logic in start_workout set it to round_duration first (e.g. 90) to show 90, then next tick 89.
-            # Let's align with user request exactly: "starts at 89". 
-            # If user types 90, they expect to see 89 immediately? Or 90 then 89?
-            # User: "90 second timer would start at 89" implies the first second is consumed immediately or we start count at N-1.
-            # Usually timer for X seconds shows X, X-1 ... 0. That is X+1 states if 0 is included. 
-            # If 0 is instantaneous end of round, it's X seconds.
-            # Let's stick to standard timer behavior: Show 90, wait 1s, Show 89. 
-            # BUT if user insists "starts at 89", maybe they want 0-indexed logic?
-            # Let's stick to my current implementation: Show N, wait 1s, Show N-1.
             
             # Update: New logic with Rest.
             self.is_rest_phase = False
-            # Wait, let's re-read: "For example: 90 second timer would start at 89 and go down to zero."
-            # This implies the first tick happens basically immediately or the range is [89, 0].
-            # Range [89, 0] is 90 integers. So that matches "90 second timer".
-            # SO: Initial set should be Duration - 1. 
-            
-            # Adjustment: When starting new round, set time_left = duration - 1
-            # EXCEPT: The very first second of the first round?
-            # User said "First round starts at round 1. Timer will go down from 89 to 0."
-            # NEW REQUEST: "make it count from 60 down to 1"
-            
             self.time_left = self.round_duration 
             
             # Visual cue for round switch
@@ -397,7 +236,6 @@ class EMOMApp(ctk.CTk):
         print("Workout Reset.")
         
     def start_workout(self):
-        # Override to fix the "Start at 89" logic for the FIRST round too
         if self.is_running:
             return
 
@@ -414,7 +252,6 @@ class EMOMApp(ctk.CTk):
             return
 
         self.current_round = 1
-        # User requirement: "make it count from 60 down to 1"
         self.time_left = self.round_duration         
         
         self.is_running = True
@@ -446,7 +283,7 @@ class EMOMApp(ctk.CTk):
             rest = getattr(self, 'rest_duration', 0)
             total_time = completed_rounds * (duration + rest)
             
-            # Format: Start Time, End Time, Completed Rounds, Round Timer, Total Time, Notes
+            # Format: Start Time, End Time, Completed Rounds, Work Time, Rest Time, Total Time, Notes
             if self.start_time:
                 start_str = self.start_time.replace(microsecond=0).isoformat()
             else:
@@ -465,15 +302,7 @@ class EMOMApp(ctk.CTk):
                 notes
             ]
             
-            filename = "workout_history.csv"
-            write_header = not os.path.exists(filename)
-            
-            with open(filename, mode='a', newline='') as f:
-                writer = csv.writer(f)
-                if write_header:
-                     # This should match the manual header update we did or creating new file
-                    writer.writerow(["start_time", "end_time", "total_rounds_completed", "work_time_sec", "rest_time_sec", "total_time_sec", "workout_notes"])
-                writer.writerow(row)
+            storage.save_workout(row)
                 
             print(f"History saved: {row}")
             
