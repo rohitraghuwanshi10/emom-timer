@@ -6,9 +6,28 @@ import datetime
 import storage
 from history_ui import HistoryWindow
 
-# Set appearance mode and default color theme
-ctk.set_appearance_mode("System")  # Modes: "System" (standard), "Dark", "Light"
-ctk.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue"
+# --- Modern "Liquid" / iOS Dark Mode Theme ---
+# Backgrounds
+BG_COLOR = "#000000"         # Pure black for OLED feel
+CARD_COLOR = "#1C1C1E"       # Secondary dark
+TEXT_COLOR = "#FFFFFF"
+TEXT_SECONDARY = "#8E8E93"
+
+# Accents
+ACCENT_BLUE = "#0A84FF"      # iOS System Blue
+ACCENT_GREEN = "#30D158"     # iOS System Green
+ACCENT_RED = "#FF453A"       # iOS System Red
+ACCENT_ORANGE = "#FF9F0A"    # iOS System Orange
+ACCENT_PURPLE = "#BF5AF2"    # iOS System Purple
+
+# Config
+CORNER_RADIUS = 20
+BUTTON_HEIGHT = 55
+FONT_FAMILY = "Arial"        # Fallback to Arial, ideally SF Pro on Mac
+
+# Set appearance mode and color theme
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("dark-blue")
 
 class EMOMApp(ctk.CTk):
     def __init__(self):
@@ -16,7 +35,8 @@ class EMOMApp(ctk.CTk):
 
         # --- Window Setup ---
         self.title("EMOM Workout Timer")
-        self.geometry("500x550")
+        self.geometry("450x750") # Taller, sleeker aspect ratio
+        self.configure(fg_color=BG_COLOR)
         self.resizable(False, False)
         
         # Load Icon
@@ -38,7 +58,7 @@ class EMOMApp(ctk.CTk):
         self.current_round = 0
         self.time_left = 0
         self.is_running = False
-        self.is_rest_phase = False # Track if we are in rest phase
+        self.is_rest_phase = False 
         self.is_paused = False
         self.timer_job = None
         self.start_time = None
@@ -48,80 +68,106 @@ class EMOMApp(ctk.CTk):
         self._create_widgets()
 
     def _create_widgets(self):
-        # Configure grid layout (1 column, multiple rows)
         self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=0) # Config
+        self.grid_rowconfigure(1, weight=1) # Timer
+        self.grid_rowconfigure(2, weight=0) # Controls
+        self.grid_rowconfigure(3, weight=0) # History
         
-        # 1. Inputs Frame
-        self.input_frame = ctk.CTkFrame(self)
-        self.input_frame.grid(row=0, column=0, padx=20, pady=20, sticky="ew")
-        self.input_frame.grid_columnconfigure((0, 1, 2), weight=1)
+        # 1. Config Card
+        self.config_frame = ctk.CTkFrame(self, fg_color=CARD_COLOR, corner_radius=CORNER_RADIUS)
+        self.config_frame.grid(row=0, column=0, padx=20, pady=(30, 10), sticky="ew")
+        self.config_frame.grid_columnconfigure((0, 1, 2), weight=1)
 
-        # Rounds Input
-        self.lbl_rounds = ctk.CTkLabel(self.input_frame, text="Total Rounds:")
-        self.lbl_rounds.grid(row=0, column=0, padx=10, pady=(10, 0))
-        self.entry_rounds = ctk.CTkEntry(self.input_frame, textvariable=self.total_rounds_var, width=100)
-        self.entry_rounds.grid(row=1, column=0, padx=10, pady=(5, 10))
-
-        # Timer Input
-        self.lbl_timer = ctk.CTkLabel(self.input_frame, text="Work (sec):")
-        self.lbl_timer.grid(row=0, column=1, padx=10, pady=(10, 0))
-        self.entry_timer = ctk.CTkEntry(self.input_frame, textvariable=self.work_time_var, width=80)
-        self.entry_timer.grid(row=1, column=1, padx=10, pady=(5, 10))
-
-        # Rest Input
-        self.lbl_rest = ctk.CTkLabel(self.input_frame, text="Rest (sec):")
-        self.lbl_rest.grid(row=0, column=2, padx=10, pady=(10, 0))
-        self.entry_rest = ctk.CTkEntry(self.input_frame, textvariable=self.rest_time_var, width=80)
-        self.entry_rest.grid(row=1, column=2, padx=10, pady=(5, 10))
-
-        # Notes Input
-        self.lbl_notes = ctk.CTkLabel(self.input_frame, text="Notes (Optional):", font=("Arial", 14))
-        self.lbl_notes.grid(row=2, column=0, padx=10, pady=(5, 10), sticky="e")
+        # Labels (Secondary Text)
+        self.lbl_rounds = ctk.CTkLabel(self.config_frame, text="ROUNDS", font=(FONT_FAMILY, 12, "bold"), text_color=TEXT_SECONDARY)
+        self.lbl_rounds.grid(row=0, column=0, pady=(15, 5))
         
-        self.entry_notes = ctk.CTkEntry(self.input_frame, textvariable=self.notes_var, width=150)
-        self.entry_notes.grid(row=2, column=1, columnspan=2, padx=10, pady=(5, 10), sticky="w")
+        self.lbl_work = ctk.CTkLabel(self.config_frame, text="WORK (SEC)", font=(FONT_FAMILY, 12, "bold"), text_color=TEXT_SECONDARY)
+        self.lbl_work.grid(row=0, column=1, pady=(15, 5))
+        
+        self.lbl_rest = ctk.CTkLabel(self.config_frame, text="REST (SEC)", font=(FONT_FAMILY, 12, "bold"), text_color=TEXT_SECONDARY)
+        self.lbl_rest.grid(row=0, column=2, pady=(15, 5))
 
-        # 2. Display Area
+        # Inputs (Big Number Style)
+        entry_font = (FONT_FAMILY, 24, "bold")
+        
+        self.entry_rounds = ctk.CTkEntry(self.config_frame, textvariable=self.total_rounds_var, width=60, 
+                                         font=entry_font, justify="center", fg_color="transparent", border_width=0, text_color=ACCENT_BLUE)
+        self.entry_rounds.grid(row=1, column=0, pady=(0, 15))
+
+        self.entry_timer = ctk.CTkEntry(self.config_frame, textvariable=self.work_time_var, width=60, 
+                                        font=entry_font, justify="center", fg_color="transparent", border_width=0, text_color=ACCENT_GREEN)
+        self.entry_timer.grid(row=1, column=1, pady=(0, 15))
+
+        self.entry_rest = ctk.CTkEntry(self.config_frame, textvariable=self.rest_time_var, width=60, 
+                                       font=entry_font, justify="center", fg_color="transparent", border_width=0, text_color=ACCENT_ORANGE)
+        self.entry_rest.grid(row=1, column=2, pady=(0, 15))
+
+        # Divider for Notes
+        self.notes_frame = ctk.CTkFrame(self.config_frame, fg_color="transparent")
+        self.notes_frame.grid(row=2, column=0, columnspan=3, sticky="ew", padx=15, pady=(0, 15))
+        
+        self.lbl_notes = ctk.CTkLabel(self.notes_frame, text="NOTES", font=(FONT_FAMILY, 12, "bold"), text_color=TEXT_SECONDARY)
+        self.lbl_notes.pack(anchor="w", pady=(0, 5))
+        
+        self.entry_notes = ctk.CTkEntry(self.notes_frame, textvariable=self.notes_var, placeholder_text="Workout details...",
+                                        fg_color="#2C2C2E", border_width=0, corner_radius=10, height=35, text_color=TEXT_COLOR)
+        self.entry_notes.pack(fill="x")
+
+        # 2. Timer Display (Center Stage)
         self.display_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.display_frame.grid(row=1, column=0, padx=20, pady=10, sticky="nsew")
         self.display_frame.grid_columnconfigure(0, weight=1)
+        self.display_frame.grid_rowconfigure(0, weight=1)
+        self.display_frame.grid_rowconfigure(1, weight=0)
+        self.display_frame.grid_rowconfigure(2, weight=1)
 
-        # Current Round Display
-        self.lbl_current_round = ctk.CTkLabel(self.display_frame, text="Round 0 / 0", font=("Arial", 24, "bold"))
-        self.lbl_current_round.grid(row=0, column=0, pady=(10, 5))
+        # Round Indicator Pills
+        self.lbl_current_round = ctk.CTkLabel(self.display_frame, text="ROUND 0 / 0", font=(FONT_FAMILY, 14, "bold"), text_color=TEXT_SECONDARY)
+        self.lbl_current_round.grid(row=0, column=0, sticky="s", pady=(0, 10))
 
-        # Status Label (e.g., "Get Ready", "Work", "Done")
-        self.lbl_status = ctk.CTkLabel(self.display_frame, text="Ready to Start", font=("Arial", 16))
-        self.lbl_status.grid(row=1, column=0, pady=(0, 20))
+        # Main Timer (Huge)
+        self.lbl_main_timer = ctk.CTkLabel(self.display_frame, text="00:00", font=(FONT_FAMILY, 90, "bold"), text_color=TEXT_COLOR)
+        self.lbl_main_timer.grid(row=1, column=0)
 
-        # Timer Display (Big)
-        self.lbl_main_timer = ctk.CTkLabel(self.display_frame, text="00:00", font=("Arial", 80, "bold"))
-        self.lbl_main_timer.grid(row=2, column=0, pady=10)
+        # Status
+        self.lbl_status = ctk.CTkLabel(self.display_frame, text="READY", font=(FONT_FAMILY, 18, "bold"), text_color=ACCENT_BLUE)
+        self.lbl_status.grid(row=2, column=0, sticky="n", pady=(10, 0))
 
-        # 3. Controls
+
+        # 3. Controls (Bottom)
         self.button_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.button_frame.grid(row=2, column=0, padx=20, pady=20, sticky="ew")
+        self.button_frame.grid(row=2, column=0, padx=30, pady=(0, 30), sticky="ew")
         self.button_frame.grid_columnconfigure((0, 1), weight=1)
 
-        self.btn_start = ctk.CTkButton(self.button_frame, text="START WORKOUT", command=self.start_workout, 
-                                       height=50, fg_color="#10B981", hover_color="#059669", font=("Arial", 15, "bold"))
+        self.btn_start = ctk.CTkButton(self.button_frame, text="START", command=self.start_workout, 
+                                       height=BUTTON_HEIGHT, corner_radius=BUTTON_HEIGHT//2,
+                                       fg_color=ACCENT_GREEN, hover_color="#28a745", 
+                                       font=(FONT_FAMILY, 18, "bold"), text_color="black")
         self.btn_start.grid(row=0, column=0, padx=(0, 10), sticky="ew")
 
         self.btn_reset = ctk.CTkButton(self.button_frame, text="RESET", command=self.reset_workout, 
-                                       height=50, fg_color="#EF4444", hover_color="#DC2626", font=("Arial", 15, "bold"))
+                                       height=BUTTON_HEIGHT, corner_radius=BUTTON_HEIGHT//2,
+                                       fg_color=CARD_COLOR, hover_color="#3A3A3C", 
+                                       font=(FONT_FAMILY, 18, "bold"), text_color=ACCENT_RED)
         self.btn_reset.grid(row=0, column=1, padx=(10, 0), sticky="ew")
 
-        # 4. History Controls
-        self.history_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.history_frame.grid(row=3, column=0, padx=20, pady=(0, 20), sticky="ew")
-        self.history_frame.grid_columnconfigure((0, 1), weight=1)
+        # 4. Footer (History)
+        self.footer_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.footer_frame.grid(row=3, column=0, padx=20, pady=(0, 20), sticky="ew")
+        self.footer_frame.grid_columnconfigure(1, weight=1)
 
-        self.chk_history = ctk.CTkCheckBox(self.history_frame, text="Save to History", variable=self.save_history_var)
-        self.chk_history.grid(row=0, column=0, padx=10, sticky="w")
+        self.chk_history = ctk.CTkCheckBox(self.footer_frame, text="Save History", variable=self.save_history_var,
+                                           font=(FONT_FAMILY, 12), text_color=TEXT_SECONDARY,
+                                           fg_color=ACCENT_BLUE, hover_color=ACCENT_BLUE, border_color=TEXT_SECONDARY)
+        self.chk_history.grid(row=0, column=0, sticky="w")
         
-        self.btn_history = ctk.CTkButton(self.history_frame, text="Show History", command=self.open_history_window,
-                                         fg_color="#3B8ED0", hover_color="#36719F", height=32)
-        self.btn_history.grid(row=0, column=1, padx=10, sticky="e")
+        self.btn_history = ctk.CTkButton(self.footer_frame, text="History", command=self.open_history_window,
+                                         fg_color="transparent", hover_color=CARD_COLOR, 
+                                         text_color=ACCENT_PURPLE, font=(FONT_FAMILY, 14, "bold"), 
+                                         height=30, width=80, corner_radius=15)
+        self.btn_history.grid(row=0, column=1, sticky="e")
 
     def open_history_window(self):
         if self.history_window is None or not self.history_window.winfo_exists():
@@ -134,12 +180,12 @@ class EMOMApp(ctk.CTk):
         if self.is_paused:
             # Resume
             self.is_paused = False
-            self.btn_start.configure(text="PAUSE")
+            self.btn_start.configure(text="PAUSE", fg_color=ACCENT_ORANGE, text_color="black")
             self.update_timer()
         else:
             # Pause
             self.is_paused = True
-            self.btn_start.configure(text="RESUME")
+            self.btn_start.configure(text="RESUME", fg_color=ACCENT_GREEN, text_color="black")
             if self.timer_job:
                 self.after_cancel(self.timer_job)
                 self.timer_job = None
@@ -152,47 +198,36 @@ class EMOMApp(ctk.CTk):
         display_min = self.time_left // 60
         display_sec = self.time_left % 60
         self.lbl_main_timer.configure(text=f"{display_min:02}:{display_sec:02}")
-        self.lbl_current_round.configure(text=f"Round {self.current_round} / {self.total_rounds}")
-
-        # Console log for debugging/verification
-        print(f"Round: {self.current_round}, Time: {self.time_left}")
+        self.lbl_current_round.configure(text=f"ROUND {self.current_round} / {self.total_rounds}")
 
         # Check conditions
         if self.time_left > 1:
-             # Just decrement
             self.time_left -= 1
             self.timer_job = self.after(1000, self.update_timer)
         else:
-            # Round started/Phase finished (time_left == 0)
             if not self.is_rest_phase:
-                 # Check if we need to switch to rest
                  if self.rest_duration > 0:
                      self.start_rest_phase()
                  else:
                      self.next_round()
             else:
-                # Rest phase done, go to next round
                 self.next_round()
 
     def start_rest_phase(self):
         self.is_rest_phase = True
         self.time_left = self.rest_duration
-        self.lbl_status.configure(text=f"Rest Time! (Round {self.current_round})", text_color="#F59E0B") # Amber
-        print(f"--- Rest Phase: {self.rest_duration}s ---")
+        self.lbl_status.configure(text="REST TIME", text_color=ACCENT_ORANGE)
+        self.lbl_main_timer.configure(text_color=ACCENT_ORANGE)
         self.after(1000, self.update_timer)
 
     def next_round(self):
-        # Time ran out for current round (and rest if applicable).
         if self.current_round < self.total_rounds:
             self.current_round += 1
-            
-            # Update: New logic with Rest.
             self.is_rest_phase = False
             self.time_left = self.round_duration 
             
-            # Visual cue for round switch
-            self.lbl_status.configure(text=f"Round {self.current_round} Started!", text_color="#3B8ED0") # Blueish
-            print(f"--- Round {self.current_round} starting ---")
+            self.lbl_status.configure(text="WORK", text_color=ACCENT_GREEN)
+            self.lbl_main_timer.configure(text_color=TEXT_COLOR)
             
             self.after(1000, self.update_timer)
             
@@ -202,16 +237,15 @@ class EMOMApp(ctk.CTk):
     def finish_workout(self):
         self.save_history(self.total_rounds)
         self.is_running = False
-        self.lbl_status.configure(text="WORKOUT COMPLETE!", text_color="green")
-        self.lbl_main_timer.configure(text="00:00")
-        self.btn_start.configure(state="normal", text="START AGAIN", command=self.start_workout)
+        self.lbl_status.configure(text="COMPLETED!", text_color=ACCENT_BLUE)
+        self.lbl_main_timer.configure(text="00:00", text_color=TEXT_COLOR)
+        
+        self.btn_start.configure(state="normal", text="START", fg_color=ACCENT_GREEN, text_color="black", command=self.start_workout)
         self.entry_rounds.configure(state="normal")
         self.entry_timer.configure(state="normal")
         self.entry_rest.configure(state="normal")
-        print("Workout Completed.")
 
     def reset_workout(self):
-        # Save history if workout was in progress (checking if start_time was set)
         if self.start_time is not None:
             completed_rounds = max(0, self.current_round - 1)
             self.save_history(completed_rounds)
@@ -225,15 +259,14 @@ class EMOMApp(ctk.CTk):
         self.current_round = 0
         self.time_left = 0
         
-        self.lbl_main_timer.configure(text="00:00")
-        self.lbl_current_round.configure(text="Round 0 / 0")
-        self.lbl_status.configure(text="Ready to Start", text_color="white")
+        self.lbl_main_timer.configure(text="00:00", text_color=TEXT_COLOR)
+        self.lbl_current_round.configure(text="ROUND 0 / 0")
+        self.lbl_status.configure(text="READY", text_color=ACCENT_BLUE)
         
-        self.btn_start.configure(state="normal", text="START WORKOUT", command=self.start_workout)
+        self.btn_start.configure(state="normal", text="START", fg_color=ACCENT_GREEN, text_color="black", command=self.start_workout)
         self.entry_rounds.configure(state="normal")
         self.entry_timer.configure(state="normal")
         self.entry_rest.configure(state="normal")
-        print("Workout Reset.")
         
     def start_workout(self):
         if self.is_running:
@@ -242,13 +275,10 @@ class EMOMApp(ctk.CTk):
         try:
             self.total_rounds = int(self.total_rounds_var.get())
             self.round_duration = int(self.work_time_var.get())
-            
-            # Handle empty/invalid rest input as 0
             rest_val = self.rest_time_var.get().strip()
             self.rest_duration = int(rest_val) if rest_val else 0
-            
         except ValueError:
-            self.lbl_status.configure(text="Error: Invalid Input", text_color="red")
+            self.lbl_status.configure(text="INVALID INPUT", text_color=ACCENT_RED)
             return
 
         self.current_round = 1
@@ -259,17 +289,16 @@ class EMOMApp(ctk.CTk):
         self.is_paused = False
         self.start_time = datetime.datetime.now()
         
-        self.btn_start.configure(text="PAUSE", command=self.toggle_pause)
+        self.btn_start.configure(text="PAUSE", fg_color=ACCENT_ORANGE, text_color="black", command=self.toggle_pause)
         
         self.entry_rounds.configure(state="disabled")
         self.entry_timer.configure(state="disabled")
         self.entry_rest.configure(state="disabled")
-        self.lbl_status.configure(text="Workout In Progress", text_color="white")
         
-        print(f"Starting Workout: {self.total_rounds} Rounds, Work: {self.round_duration}s, Rest: {self.rest_duration}s. Starting at {self.time_left}.")
+        self.lbl_status.configure(text="WORK", text_color=ACCENT_GREEN)
+        self.lbl_current_round.configure(text=f"ROUND 1 / {self.total_rounds}")
         
         self.update_timer()
-
 
     def save_history(self, completed_rounds):
         if not self.save_history_var.get():
@@ -277,17 +306,13 @@ class EMOMApp(ctk.CTk):
 
         try:
             end_time = datetime.datetime.now().replace(microsecond=0)
-            
-            # If round_duration or other props aren't set, default to 0
             duration = getattr(self, 'round_duration', 0)
             rest = getattr(self, 'rest_duration', 0)
             total_time = completed_rounds * (duration + rest)
             
-            # Format: Start Time, End Time, Completed Rounds, Work Time, Rest Time, Total Time, Notes
             if self.start_time:
                 start_str = self.start_time.replace(microsecond=0).isoformat()
             else:
-                # Fallback if somehow start_time wasn't set (shouldn't happen with logic above)
                 start_str = end_time.isoformat()
             
             notes = self.entry_notes.get()
@@ -303,8 +328,7 @@ class EMOMApp(ctk.CTk):
             ]
             
             storage.save_workout(row)
-                
-            print(f"History saved: {row}")
+            print(f"History saved")
             
         except Exception as e:
             print(f"Error saving history: {e}")
