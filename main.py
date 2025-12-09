@@ -132,8 +132,8 @@ class EMOMApp(ctk.CTk):
         self.display_frame.grid_rowconfigure(1, weight=0)
         self.display_frame.grid_rowconfigure(2, weight=1)
 
-        # Round Indicator Pills
-        self.lbl_current_round = ctk.CTkLabel(self.display_frame, text="ROUND 0 / 0", font=(FONT_FAMILY, 14, "bold"), text_color=TEXT_SECONDARY)
+        # Round Indicator (Huge now)
+        self.lbl_current_round = ctk.CTkLabel(self.display_frame, text="0 / 0", font=(FONT_FAMILY, 90, "bold"), text_color=TEXT_SECONDARY)
         self.lbl_current_round.grid(row=0, column=0, sticky="s", pady=(0, 10))
 
         # Main Timer (Huge)
@@ -209,7 +209,7 @@ class EMOMApp(ctk.CTk):
         self.lbl_main_timer.configure(text=f"{display_min:02}:{display_sec:02}")
         
         if not self.is_pre_start:
-            self.lbl_current_round.configure(text=f"ROUND {self.current_round} / {self.total_rounds}")
+            self.lbl_current_round.configure(text=f"{self.current_round} / {self.total_rounds}")
         else:
             self.lbl_status.configure(text="GET READY", text_color=ACCENT_YELLOW)
 
@@ -307,7 +307,7 @@ class EMOMApp(ctk.CTk):
         self.start_time = None
         
         self.lbl_main_timer.configure(text="00:00", text_color=TEXT_COLOR)
-        self.lbl_current_round.configure(text="ROUND 0 / 0")
+        self.lbl_current_round.configure(text="0 / 0")
         self.lbl_status.configure(text="READY", text_color=ACCENT_BLUE)
         
         self.btn_start.configure(state="normal", text="START", fg_color=ACCENT_GREEN, text_color="black", command=self.start_workout)
@@ -344,7 +344,7 @@ class EMOMApp(ctk.CTk):
         self.time_left = 5
         self.lbl_status.configure(text="GET READY", text_color=ACCENT_YELLOW)
         self.lbl_main_timer.configure(text_color=ACCENT_YELLOW)
-        self.lbl_current_round.configure(text=f"PREPARING...")
+        self.lbl_current_round.configure(text="PREP")
         
         self.btn_start.configure(text="PAUSE", fg_color=ACCENT_ORANGE, text_color="black", command=self.toggle_pause)
         
@@ -352,10 +352,7 @@ class EMOMApp(ctk.CTk):
         self.entry_timer.configure(state="disabled")
         self.entry_rest.configure(state="disabled")
         
-        self.lbl_status.configure(text="WORK", text_color=ACCENT_GREEN)
-        self.lbl_current_round.configure(text=f"ROUND 1 / {self.total_rounds}")
-        
-        self.play_sound("Glass", 1) # Single beep for first round
+
         self.update_timer()
 
     def save_history(self, completed_rounds):
