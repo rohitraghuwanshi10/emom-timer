@@ -240,13 +240,13 @@ class EMOMApp(ctk.CTk):
         self.after(0, lambda: self.current_hr.set(str(valid_bpm)))
 
     def on_hr_status_change(self, status):
-        self.after(0, lambda: self.hr_status.set(f"HR: {status}"))
+        self.after(0, lambda: self.hr_status.set(status))
         
         # Reset button state if we disconnected unexpectedly
         if status == "Disconnected":
              self.after(0, lambda: self.btn_connect_hr.configure(text="Connect HR", fg_color=ACCENT_BLUE))
              self.after(0, lambda: self.current_hr.set("--"))
-        elif status == "Connected":
+        elif status.endswith("Connected") and not status == "Disconnected":
              self.after(0, lambda: self.btn_connect_hr.configure(text="Disconnect", fg_color=ACCENT_RED))
 
     def on_close(self):

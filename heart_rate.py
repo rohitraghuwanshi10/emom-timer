@@ -49,7 +49,7 @@ class HeartRateMonitor:
             async with BleakClient(device, disconnected_callback=self._on_disconnect) as client:
                 self.client = client
                 self.is_connected = True
-                self._update_status("Connected")
+                self._update_status(f"{device.name} Connected")
 
                 await client.start_notify(HR_MEASUREMENT_UUID, self._notification_handler)
 

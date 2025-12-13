@@ -12,11 +12,6 @@ A modern, python-based EMOM (Every Minute on the Minute) timer application built
 
 ## Features
 
-### 🎨 Modern "Liquid" UI
-- **Dark Mode Aesthetic**: Sleek black and dark gray theme inspired by modern OLED interfaces.
-- **Vibrant Accents**: Neon colors (Blue, Green, Orange, Red) for clear visual status indication.
-- **Clean Layout**: Rounded cards, pill-shaped buttons, and large, legible typography.
-
 ### ⏱️ Advanced Timer
 - **Flexible Configuration**: Set your **Total Rounds**, **Work Duration**, and **Rest Duration**.
 - **Work & Rest Phases**: The timer clearly distinguishes between "Work" and "Rest" phases with visual status updates.
@@ -42,13 +37,19 @@ A modern, python-based EMOM (Every Minute on the Minute) timer application built
 - Add custom **Notes** to any workout before starting or saving.
 - Notes are saved alongside performance data for future reference (e.g., "16kg kettlebell ABC workout").
 
+### ❤️ Heart Rate Monitoring
+- **Bluetooth Integration**: Connect compatible BLE heart rate monitors (e.g., Polar H10).
+- **Real-Time Tracking**: View your live heart rate (BPM) during workouts.
+- **Smart Connection**: Displays the specific name of your connected device.
+- **Status Indicators**: Visual feedback for connection states (Scanning, Connecting, Connected).
+
 ## Getting Started
 
 ### Prerequisites
 - Python 3.x
 - Required libraries:
   ```bash
-  pip install customtkinter pillow matplotlib numpy
+  pip install customtkinter pillow matplotlib numpy bleak
   ```
 
 ### Running the App
@@ -61,6 +62,7 @@ python main.py
 The application is modularized for better maintainability:
 - `main.py`: Core application logic and main GUI.
 - `history_ui.py`: Manages the History Window and Data Visualization.
+- `heart_rate.py`: Handles Bluetooth LE communication and heart rate data parsing.
 - `storage.py`: Handles CSV file operations and data persistence.
 - `sounds/`: Directory containing bundled audio assets (`Glass.aiff`, `Hero.aiff`).
 
