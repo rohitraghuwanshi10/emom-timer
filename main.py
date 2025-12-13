@@ -341,7 +341,7 @@ class EMOMApp(ctk.CTk):
         self.current_round = 0
         
         # Setup Pre-Start Phase
-        self.time_left = 5
+        self.time_left = 10
         self.lbl_status.configure(text="GET READY", text_color=ACCENT_YELLOW)
         self.lbl_main_timer.configure(text_color=ACCENT_YELLOW)
         self.lbl_current_round.configure(text="PREP")
