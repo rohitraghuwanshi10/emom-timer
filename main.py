@@ -21,6 +21,7 @@ ACCENT_GREEN = "#30D158"     # iOS System Green
 ACCENT_RED = "#FF453A"       # iOS System Red
 ACCENT_ORANGE = "#FF9F0A"    # iOS System Orange
 ACCENT_PURPLE = "#BF5AF2"    # iOS System Purple
+ACCENT_YELLOW = "#FFD60A"    # iOS System Yellow
 
 # Config
 CORNER_RADIUS = 20
@@ -65,7 +66,8 @@ class EMOMApp(ctk.CTk):
         self.current_round = 0
         self.time_left = 0
         self.is_running = False
-        self.is_rest_phase = False 
+        self.is_rest_phase = False
+        self.is_pre_start = False # Flag for 5s countdown
         self.is_paused = False
         self.timer_job = None
         self.start_time = None
@@ -130,8 +132,8 @@ class EMOMApp(ctk.CTk):
         self.display_frame.grid_rowconfigure(1, weight=0)
         self.display_frame.grid_rowconfigure(2, weight=1)
 
-        # Round Indicator Pills
-        self.lbl_current_round = ctk.CTkLabel(self.display_frame, text="ROUND 0 / 0", font=(FONT_FAMILY, 14, "bold"), text_color=TEXT_SECONDARY)
+        # Round Indicator (Huge now)
+        self.lbl_current_round = ctk.CTkLabel(self.display_frame, text="0 / 0", font=(FONT_FAMILY, 90, "bold"), text_color=TEXT_SECONDARY)
         self.lbl_current_round.grid(row=0, column=0, sticky="s", pady=(0, 10))
 
         # Main Timer (Huge)
@@ -198,20 +200,30 @@ class EMOMApp(ctk.CTk):
                 self.timer_job = None
 
     def update_timer(self):
-        if not self.is_running:
+        if not self.is_running or self.is_paused:
             return
 
         # Calculate display
         display_min = self.time_left // 60
         display_sec = self.time_left % 60
         self.lbl_main_timer.configure(text=f"{display_min:02}:{display_sec:02}")
-        self.lbl_current_round.configure(text=f"ROUND {self.current_round} / {self.total_rounds}")
+        
+        if not self.is_pre_start:
+            self.lbl_current_round.configure(text=f"{self.current_round} / {self.total_rounds}")
+        else:
+            self.lbl_status.configure(text="GET READY", text_color=ACCENT_YELLOW)
 
         # Check conditions
         if self.time_left > 1:
             self.time_left -= 1
             self.timer_job = self.after(1000, self.update_timer)
         else:
+            # Check for Pre-Start Phase
+            if self.is_pre_start:
+                self.is_pre_start = False
+                self.next_round() # Start transition to Round 1
+                return
+
             if not self.is_rest_phase:
                  if self.rest_duration > 0:
                      self.start_rest_phase()
@@ -245,7 +257,7 @@ class EMOMApp(ctk.CTk):
     def start_rest_phase(self):
         self.is_rest_phase = True
         self.time_left = self.rest_duration
-        self.lbl_status.configure(text="REST TIME", text_color=ACCENT_ORANGE)
+        self.lbl_status.configure(text="REST", text_color=ACCENT_ORANGE)
         self.lbl_main_timer.configure(text_color=ACCENT_ORANGE)
         self.play_sound("Hero", 1) # Warm, pleasant chime for rest
         self.after(1000, self.update_timer)
@@ -289,9 +301,13 @@ class EMOMApp(ctk.CTk):
             
         self.current_round = 0
         self.time_left = 0
+        self.is_paused = False
+        self.is_rest_phase = False
+        self.is_pre_start = False
+        self.start_time = None
         
         self.lbl_main_timer.configure(text="00:00", text_color=TEXT_COLOR)
-        self.lbl_current_round.configure(text="ROUND 0 / 0")
+        self.lbl_current_round.configure(text="0 / 0")
         self.lbl_status.configure(text="READY", text_color=ACCENT_BLUE)
         
         self.btn_start.configure(state="normal", text="START", fg_color=ACCENT_GREEN, text_color="black", command=self.start_workout)
@@ -300,9 +316,14 @@ class EMOMApp(ctk.CTk):
         self.entry_rest.configure(state="normal")
         
     def start_workout(self):
-        if self.is_running:
+        if self.is_running and not self.is_paused:
             return
 
+        if self.is_paused:
+            # Just Resume
+            self.toggle_pause()
+            return
+            
         try:
             self.total_rounds = int(self.total_rounds_var.get())
             self.round_duration = int(self.work_time_var.get())
@@ -312,13 +333,18 @@ class EMOMApp(ctk.CTk):
             self.lbl_status.configure(text="INVALID INPUT", text_color=ACCENT_RED)
             return
 
-        self.current_round = 1
-        self.time_left = self.round_duration         
-        
-        self.is_running = True
-        self.is_rest_phase = False
-        self.is_paused = False
         self.start_time = datetime.datetime.now()
+        self.is_running = True
+        self.is_paused = False
+        self.is_rest_phase = False
+        self.is_pre_start = True # Start with Countdown
+        self.current_round = 0
+        
+        # Setup Pre-Start Phase
+        self.time_left = 10
+        self.lbl_status.configure(text="GET READY", text_color=ACCENT_YELLOW)
+        self.lbl_main_timer.configure(text_color=ACCENT_YELLOW)
+        self.lbl_current_round.configure(text="PREP")
         
         self.btn_start.configure(text="PAUSE", fg_color=ACCENT_ORANGE, text_color="black", command=self.toggle_pause)
         
@@ -326,10 +352,7 @@ class EMOMApp(ctk.CTk):
         self.entry_timer.configure(state="disabled")
         self.entry_rest.configure(state="disabled")
         
-        self.lbl_status.configure(text="WORK", text_color=ACCENT_GREEN)
-        self.lbl_current_round.configure(text=f"ROUND 1 / {self.total_rounds}")
-        
-        self.play_sound("Glass", 1) # Single beep for first round
+
         self.update_timer()
 
     def save_history(self, completed_rounds):
