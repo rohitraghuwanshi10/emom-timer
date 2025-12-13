@@ -7,6 +7,7 @@ import datetime
 import storage
 import subprocess
 from history_ui import HistoryWindow
+from heart_rate import HeartRateMonitor
 
 # --- Modern "Liquid" / iOS Dark Mode Theme ---
 # Backgrounds
@@ -38,7 +39,7 @@ class EMOMApp(ctk.CTk):
 
         # --- Window Setup ---
         self.title("EMOM Workout Timer")
-        self.geometry("450x750") # Taller, sleeker aspect ratio
+        self.geometry("450x850") # Increased height for HR controls
         self.configure(fg_color=BG_COLOR)
         self.resizable(False, False)
         
@@ -73,15 +74,25 @@ class EMOMApp(ctk.CTk):
         self.start_time = None
         self.history_window = None
         
+        # --- Heart Rate Variables ---
+        self.hr_monitor = HeartRateMonitor(on_hr_update=self.on_hr_update, on_status_change=self.on_hr_status_change)
+        self.current_hr = ctk.StringVar(value="--")
+        self.hr_status = ctk.StringVar(value="Disconnected")
+        self.is_hr_connecting = False
+        
         # --- UI Layout ---
         self._create_widgets()
+        
+        # Clean up on exit
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def _create_widgets(self):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=0) # Config
         self.grid_rowconfigure(1, weight=1) # Timer
         self.grid_rowconfigure(2, weight=0) # Controls
-        self.grid_rowconfigure(3, weight=0) # History
+        self.grid_rowconfigure(3, weight=0) # HR Controls
+        self.grid_rowconfigure(4, weight=0) # History
         
         # 1. Config Card
         self.config_frame = ctk.CTkFrame(self, fg_color=CARD_COLOR, corner_radius=CORNER_RADIUS)
@@ -132,22 +143,35 @@ class EMOMApp(ctk.CTk):
         self.display_frame.grid_rowconfigure(1, weight=0)
         self.display_frame.grid_rowconfigure(2, weight=1)
 
-        # Round Indicator (Huge now)
+        # Round Indicator
         self.lbl_current_round = ctk.CTkLabel(self.display_frame, text="0 / 0", font=(FONT_FAMILY, 90, "bold"), text_color=TEXT_SECONDARY)
         self.lbl_current_round.grid(row=0, column=0, sticky="s", pady=(0, 10))
 
-        # Main Timer (Huge)
+        # Main Timer
         self.lbl_main_timer = ctk.CTkLabel(self.display_frame, text="00:00", font=(FONT_FAMILY, 90, "bold"), text_color=TEXT_COLOR)
         self.lbl_main_timer.grid(row=1, column=0)
 
+        # Heart Rate Display (Embedded in Timer Area)
+        self.hr_frame = ctk.CTkFrame(self.display_frame, fg_color="transparent")
+        self.hr_frame.grid(row=2, column=0, sticky="n", pady=(5, 0))
+        
+        self.lbl_hr_icon = ctk.CTkLabel(self.hr_frame, text="♥", font=(FONT_FAMILY, 24), text_color=ACCENT_RED)
+        self.lbl_hr_icon.pack(side="left", padx=(0, 5))
+        
+        self.lbl_hr_value = ctk.CTkLabel(self.hr_frame, textvariable=self.current_hr, font=(FONT_FAMILY, 24, "bold"), text_color=TEXT_COLOR)
+        self.lbl_hr_value.pack(side="left")
+        
+        self.lbl_hr_unit = ctk.CTkLabel(self.hr_frame, text="BPM", font=(FONT_FAMILY, 14, "bold"), text_color=TEXT_SECONDARY)
+        self.lbl_hr_unit.pack(side="left", padx=(5, 0), pady=(8, 0))
+
         # Status
         self.lbl_status = ctk.CTkLabel(self.display_frame, text="READY", font=(FONT_FAMILY, 18, "bold"), text_color=ACCENT_BLUE)
-        self.lbl_status.grid(row=2, column=0, sticky="n", pady=(10, 0))
+        self.lbl_status.grid(row=3, column=0, sticky="n", pady=(10, 0))
 
 
         # 3. Controls (Bottom)
         self.button_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.button_frame.grid(row=2, column=0, padx=30, pady=(0, 30), sticky="ew")
+        self.button_frame.grid(row=2, column=0, padx=30, pady=(0, 20), sticky="ew")
         self.button_frame.grid_columnconfigure((0, 1), weight=1)
 
         self.btn_start = ctk.CTkButton(self.button_frame, text="START", command=self.start_workout, 
@@ -161,10 +185,25 @@ class EMOMApp(ctk.CTk):
                                        fg_color=CARD_COLOR, hover_color="#3A3A3C", 
                                        font=(FONT_FAMILY, 18, "bold"), text_color=ACCENT_RED)
         self.btn_reset.grid(row=0, column=1, padx=(10, 0), sticky="ew")
+        
+        # 4. Heart Rate Controls
+        self.hr_control_frame = ctk.CTkFrame(self, fg_color=CARD_COLOR, corner_radius=15)
+        self.hr_control_frame.grid(row=3, column=0, padx=30, pady=(0, 20), sticky="ew")
+        self.hr_control_frame.grid_columnconfigure(0, weight=1)
+        self.hr_control_frame.grid_columnconfigure(1, weight=0)
 
-        # 4. Footer (History)
+        self.lbl_hr_status = ctk.CTkLabel(self.hr_control_frame, textvariable=self.hr_status, 
+                                          font=(FONT_FAMILY, 12), text_color=TEXT_SECONDARY)
+        self.lbl_hr_status.grid(row=0, column=0, padx=15, pady=8, sticky="w")
+        
+        self.btn_connect_hr = ctk.CTkButton(self.hr_control_frame, text="Connect HR", command=self.toggle_hr_connection,
+                                            fg_color=ACCENT_BLUE, hover_color="#0060df", height=28, width=100, corner_radius=14,
+                                            font=(FONT_FAMILY, 12, "bold"))
+        self.btn_connect_hr.grid(row=0, column=1, padx=10, pady=8, sticky="e")
+
+        # 5. Footer (History)
         self.footer_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.footer_frame.grid(row=3, column=0, padx=20, pady=(0, 20), sticky="ew")
+        self.footer_frame.grid(row=4, column=0, padx=20, pady=(0, 20), sticky="ew")
         self.footer_frame.grid_columnconfigure(1, weight=1)
 
         self.chk_history = ctk.CTkCheckBox(self.footer_frame, text="Save History", variable=self.save_history_var,
@@ -184,7 +223,37 @@ class EMOMApp(ctk.CTk):
             self.history_window.focus()
         else:
             self.history_window.focus()
+            
+    def toggle_hr_connection(self):
+        if self.hr_monitor.is_connected:
+            self.hr_monitor.stop()
+            self.btn_connect_hr.configure(text="Connect HR", fg_color=ACCENT_BLUE)
+            self.current_hr.set("--")
+        else:
+            self.hr_monitor.start()
+            self.btn_connect_hr.configure(text="Disconnect", fg_color=ACCENT_RED)
+            
+    def on_hr_update(self, valid_bpm):
+        # Update the UI variable from the callback (which might be in another thread)
+        # Tkinter is not thread-safe, but setting StringVars is usually okay. 
+        # For safety, we can use after() but let's try direct first as it's just a var.
+        self.after(0, lambda: self.current_hr.set(str(valid_bpm)))
+
+    def on_hr_status_change(self, status):
+        self.after(0, lambda: self.hr_status.set(f"HR: {status}"))
         
+        # Reset button state if we disconnected unexpectedly
+        if status == "Disconnected":
+             self.after(0, lambda: self.btn_connect_hr.configure(text="Connect HR", fg_color=ACCENT_BLUE))
+             self.after(0, lambda: self.current_hr.set("--"))
+        elif status == "Connected":
+             self.after(0, lambda: self.btn_connect_hr.configure(text="Disconnect", fg_color=ACCENT_RED))
+
+    def on_close(self):
+        if self.hr_monitor:
+            self.hr_monitor.stop()
+        self.destroy()
+
     def toggle_pause(self):
         if self.is_paused:
             # Resume
