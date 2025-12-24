@@ -117,7 +117,7 @@ class HistoryWindow(ctk.CTkToplevel):
 
     def load_graph(self, rows):
         # Data Processing
-        # date_map: {date_str: [duration1, duration2, ...]}
+        # date_map: {date_str: [(duration, notes), ...]}
         date_map = defaultdict(list)
         
         try:
@@ -137,8 +137,13 @@ class HistoryWindow(ctk.CTkToplevel):
                     duration_min = float(row[5]) / 60.0
                 except (ValueError, IndexError):
                     duration_min = 0
-                    
-                date_map[date_str].append(duration_min)
+                
+                # row[6] is workout_notes (optional)
+                notes = ""
+                if len(row) > 6:
+                    notes = row[6]
+
+                date_map[date_str].append((duration_min, notes))
             
             if not date_map:
                 return
@@ -149,15 +154,21 @@ class HistoryWindow(ctk.CTkToplevel):
             
             # Prepare series
             series_list = []
+            notes_series_list = []
+
             for i in range(max_workouts):
                 series = []
+                notes_list = []
                 for d in dates:
                     workouts = date_map[d]
                     if i < len(workouts):
-                        series.append(workouts[i])
+                        series.append(workouts[i][0])
+                        notes_list.append(workouts[i][1])
                     else:
                         series.append(0)
+                        notes_list.append("")
                 series_list.append(series)
+                notes_series_list.append(notes_list)
 
             # --- Modern Graph Styling ---
             plt.style.use('dark_background')
@@ -167,10 +178,13 @@ class HistoryWindow(ctk.CTkToplevel):
             
             bottom = [0] * len(dates)
             
+            bar_containers = []
+
             # Create Bars
             for i, series in enumerate(series_list):
                 color = ACCENT_COLORS[i % len(ACCENT_COLORS)]
-                ax.bar(dates, series, bottom=bottom, label=f'WO {i+1}', color=color, alpha=0.9, width=0.5, edgecolor=CARD_COLOR, linewidth=0.5)
+                bars = ax.bar(dates, series, bottom=bottom, label=f'WO {i+1}', color=color, alpha=0.9, width=0.5, edgecolor=CARD_COLOR, linewidth=0.5)
+                bar_containers.append(bars)
                 # Update bottom
                 for j in range(len(bottom)):
                     bottom[j] += series[j]
@@ -199,10 +213,65 @@ class HistoryWindow(ctk.CTkToplevel):
 
             plt.tight_layout()
 
+            # --- Hover Annotation ---
+            annot = ax.annotate("", xy=(0,0), xytext=(10,10), textcoords="offset points",
+                                bbox=dict(boxstyle="round", fc=CARD_COLOR, ec="white", alpha=0.9),
+                                arrowprops=dict(arrowstyle="->", color="white"),
+                                color="white", fontsize=9)
+            annot.set_visible(False)
+
+            def update_annot(bar, notes, wo_idx):
+                x = bar.get_x() + bar.get_width() / 2.
+                y = bar.get_y() + bar.get_height() / 2.
+                annot.xy = (x, y)
+                text = f"WO{wo_idx}- {notes}"
+                annot.set_text(text)
+                
+                # Dynamic positioning to avoid cutoff
+                # Get current x-axis limits
+                x_min, x_max = ax.get_xlim()
+                graph_width = x_max - x_min
+                
+                # If we are in the right half of the graph, shift text to the left
+                if x > (x_min + graph_width / 2):
+                    annot.xyann = (-10, 10)
+                    annot.set_horizontalalignment('right')
+                    # Also need to adjust the arrow connection if we simply change xyann?
+                    # default is offset points. (-10, 10) means 10 points left, 10 points up.
+                    # 'right' alignment means the text box ends at that point.
+                else:
+                    annot.xyann = (10, 10)
+                    annot.set_horizontalalignment('left')
+
+            def hover(event):
+                vis = annot.get_visible()
+                if event.inaxes == ax:
+                    found = False
+                    for i, bars in enumerate(bar_containers):
+                        for j, bar in enumerate(bars):
+                            if bar.contains(event)[0]:
+                                notes = notes_series_list[i][j]
+                                update_annot(bar, notes, i+1)
+                                annot.set_visible(True)
+                                found = True
+                                break
+                        if found: break
+                    
+                    if found:
+                        if not vis:
+                            canvas.draw_idle()
+                    else:
+                        if vis:
+                            annot.set_visible(False)
+                            canvas.draw_idle()
+
             # Embed in Tkinter
             canvas = FigureCanvasTkAgg(fig, master=self.graph_frame)
             canvas.draw()
             canvas.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)
+            
+            # Connect hover event
+            canvas.mpl_connect("motion_notify_event", hover)
             
         except Exception as e:
             print(f"Error generating graph: {e}")

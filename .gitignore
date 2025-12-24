@@ -12,4 +12,3 @@ workout_history.csv
 # PyInstaller
 build/
 dist/
-*.spec
