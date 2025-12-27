@@ -219,6 +219,7 @@ class HistoryWindow(ctk.CTkToplevel):
                                 arrowprops=dict(arrowstyle="->", color="white"),
                                 color="white", fontsize=9)
             annot.set_visible(False)
+            annot.last_bar = None
 
             def update_annot(bar, notes, wo_idx):
                 x = bar.get_x() + bar.get_width() / 2.
@@ -236,9 +237,6 @@ class HistoryWindow(ctk.CTkToplevel):
                 if x > (x_min + graph_width / 2):
                     annot.xyann = (-10, 10)
                     annot.set_horizontalalignment('right')
-                    # Also need to adjust the arrow connection if we simply change xyann?
-                    # default is offset points. (-10, 10) means 10 points left, 10 points up.
-                    # 'right' alignment means the text box ends at that point.
                 else:
                     annot.xyann = (10, 10)
                     annot.set_horizontalalignment('left')
@@ -246,23 +244,33 @@ class HistoryWindow(ctk.CTkToplevel):
             def hover(event):
                 vis = annot.get_visible()
                 if event.inaxes == ax:
-                    found = False
+                    found_bar = None
+                    found_idx = -1
+                    found_notes = ""
+
+                    # Find which bar we are hovering over
                     for i, bars in enumerate(bar_containers):
                         for j, bar in enumerate(bars):
                             if bar.contains(event)[0]:
-                                notes = notes_series_list[i][j]
-                                update_annot(bar, notes, i+1)
-                                annot.set_visible(True)
-                                found = True
+                                found_bar = bar
+                                found_idx = i + 1
+                                found_notes = notes_series_list[i][j]
                                 break
-                        if found: break
+                        if found_bar: break
                     
-                    if found:
-                        if not vis:
+                    if found_bar:
+                        # If it's a new bar, update the annotation
+                        if found_bar != annot.last_bar:
+                            update_annot(found_bar, found_notes, found_idx)
+                            annot.set_visible(True)
+                            annot.last_bar = found_bar
                             canvas.draw_idle()
+                        # If it's the same bar, do nothing (optimization)
                     else:
+                        # Not hovering over any bar
                         if vis:
                             annot.set_visible(False)
+                            annot.last_bar = None
                             canvas.draw_idle()
 
             # Embed in Tkinter
