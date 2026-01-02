@@ -7,7 +7,7 @@ import datetime
 import time
 import storage
 import subprocess
-from history_ui import HistoryWindow
+from history_ui import HistoryFrame
 from heart_rate import HeartRateMonitor
 
 # --- Modern "Liquid" / iOS Dark Mode Theme ---
@@ -40,7 +40,7 @@ class EMOMApp(ctk.CTk):
 
         # --- Window Setup ---
         self.title("EMOM Workout Timer")
-        self.geometry("450x850") # Increased height for HR controls
+        self.geometry("800x850") # Detailed History View
         self.configure(fg_color=BG_COLOR)
         self.resizable(False, False)
         
@@ -73,7 +73,7 @@ class EMOMApp(ctk.CTk):
         self.is_paused = False
         self.timer_job = None
         self.start_time = None
-        self.history_window = None
+        self.history_frame = None
         
         # --- Heart Rate Variables ---
         self.hr_monitor = HeartRateMonitor(on_hr_update=self.on_hr_update, on_status_change=self.on_hr_status_change)
@@ -89,15 +89,21 @@ class EMOMApp(ctk.CTk):
 
     def _create_widgets(self):
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(0, weight=0) # Config
-        self.grid_rowconfigure(1, weight=1) # Timer
-        self.grid_rowconfigure(2, weight=0) # Controls
-        self.grid_rowconfigure(3, weight=0) # HR Controls
-        self.grid_rowconfigure(4, weight=0) # History
+        self.grid_rowconfigure(0, weight=1)
+
+        # Tab View
+        self.tabview = ctk.CTkTabview(self, fg_color="transparent", corner_radius=15, width=460)
+        self.tabview.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        self.tabview.add("Workout")
+        self.tabview.add("History")
         
+        # --- WORKOUT TAB ---
+        workout_tab = self.tabview.tab("Workout")
+        workout_tab.grid_columnconfigure(0, weight=1)
+
         # 1. Config Card
-        self.config_frame = ctk.CTkFrame(self, fg_color=CARD_COLOR, corner_radius=CORNER_RADIUS)
-        self.config_frame.grid(row=0, column=0, padx=20, pady=(30, 10), sticky="ew")
+        self.config_frame = ctk.CTkFrame(workout_tab, fg_color=CARD_COLOR, corner_radius=CORNER_RADIUS)
+        self.config_frame.grid(row=0, column=0, padx=10, pady=(20, 10), sticky="ew")
         self.config_frame.grid_columnconfigure((0, 1, 2), weight=1)
 
         # Labels (Secondary Text)
@@ -137,13 +143,10 @@ class EMOMApp(ctk.CTk):
         self.entry_notes.pack(fill="x")
 
         # 2. Timer Display (Center Stage)
-        self.display_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.display_frame.grid(row=1, column=0, padx=20, pady=10, sticky="nsew")
+        self.display_frame = ctk.CTkFrame(workout_tab, fg_color="transparent")
+        self.display_frame.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
         self.display_frame.grid_columnconfigure(0, weight=1)
-        self.display_frame.grid_rowconfigure(0, weight=1)
-        self.display_frame.grid_rowconfigure(1, weight=0)
-        self.display_frame.grid_rowconfigure(2, weight=1)
-
+        
         # Round Indicator
         self.lbl_current_round = ctk.CTkLabel(self.display_frame, text="0 / 0", font=(FONT_FAMILY, 90, "bold"), text_color=TEXT_SECONDARY)
         self.lbl_current_round.grid(row=0, column=0, sticky="s", pady=(0, 10))
@@ -169,10 +172,9 @@ class EMOMApp(ctk.CTk):
         self.lbl_status = ctk.CTkLabel(self.display_frame, text="READY", font=(FONT_FAMILY, 18, "bold"), text_color=ACCENT_BLUE)
         self.lbl_status.grid(row=3, column=0, sticky="n", pady=(10, 0))
 
-
         # 3. Controls (Bottom)
-        self.button_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.button_frame.grid(row=2, column=0, padx=30, pady=(0, 20), sticky="ew")
+        self.button_frame = ctk.CTkFrame(workout_tab, fg_color="transparent")
+        self.button_frame.grid(row=2, column=0, padx=20, pady=(0, 20), sticky="ew")
         self.button_frame.grid_columnconfigure((0, 1), weight=1)
 
         self.btn_start = ctk.CTkButton(self.button_frame, text="START", command=self.start_workout, 
@@ -188,8 +190,8 @@ class EMOMApp(ctk.CTk):
         self.btn_reset.grid(row=0, column=1, padx=(10, 0), sticky="ew")
         
         # 4. Heart Rate Controls
-        self.hr_control_frame = ctk.CTkFrame(self, fg_color=CARD_COLOR, corner_radius=15)
-        self.hr_control_frame.grid(row=3, column=0, padx=30, pady=(0, 20), sticky="ew")
+        self.hr_control_frame = ctk.CTkFrame(workout_tab, fg_color=CARD_COLOR, corner_radius=15)
+        self.hr_control_frame.grid(row=3, column=0, padx=20, pady=(0, 20), sticky="ew")
         self.hr_control_frame.grid_columnconfigure(0, weight=1)
         self.hr_control_frame.grid_columnconfigure(1, weight=0)
 
@@ -203,7 +205,7 @@ class EMOMApp(ctk.CTk):
         self.btn_connect_hr.grid(row=0, column=1, padx=10, pady=8, sticky="e")
 
         # 5. Footer (History)
-        self.footer_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.footer_frame = ctk.CTkFrame(workout_tab, fg_color="transparent")
         self.footer_frame.grid(row=4, column=0, padx=20, pady=(0, 20), sticky="ew")
         self.footer_frame.grid_columnconfigure(1, weight=1)
 
@@ -212,19 +214,16 @@ class EMOMApp(ctk.CTk):
                                            fg_color=ACCENT_BLUE, hover_color=ACCENT_BLUE, border_color=TEXT_SECONDARY)
         self.chk_history.grid(row=0, column=0, sticky="w")
         
-        self.btn_history = ctk.CTkButton(self.footer_frame, text="History", command=self.open_history_window,
-                                         fg_color="transparent", hover_color=CARD_COLOR, 
-                                         text_color=ACCENT_PURPLE, font=(FONT_FAMILY, 14, "bold"), 
-                                         height=30, width=80, corner_radius=15)
-        self.btn_history.grid(row=0, column=1, sticky="e")
+        # Removed old history button
+        
+        # --- HISTORY TAB ---
+        history_tab = self.tabview.tab("History")
+        history_tab.grid_columnconfigure(0, weight=1)
+        history_tab.grid_rowconfigure(0, weight=1)
+        
+        self.history_frame = HistoryFrame(history_tab) # Embed new frame
+        self.history_frame.grid(row=0, column=0, sticky="nsew")
 
-    def open_history_window(self):
-        if self.history_window is None or not self.history_window.winfo_exists():
-            self.history_window = HistoryWindow()
-            self.history_window.focus()
-        else:
-            self.history_window.focus()
-            
     def toggle_hr_connection(self):
         if self.hr_monitor.is_connected:
             self.hr_monitor.stop()
@@ -457,6 +456,9 @@ class EMOMApp(ctk.CTk):
                 start_str = end_time.isoformat()
             
             notes = self.entry_notes.get()
+            
+            # Clear notes after saving
+            self.entry_notes.delete(0, 'end')
 
             row = [
                 start_str,
@@ -470,6 +472,10 @@ class EMOMApp(ctk.CTk):
             
             storage.save_workout(row)
             print(f"History saved")
+            
+            # Refresh history tab logic
+            if self.history_frame:
+                self.history_frame.refresh()
             
         except Exception as e:
             print(f"Error saving history: {e}")

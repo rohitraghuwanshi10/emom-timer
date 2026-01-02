@@ -12,11 +12,9 @@ CARD_COLOR = "#1C1C1E"
 TEXT_COLOR = "#FFFFFF"
 ACCENT_COLORS = ["#5E81AC", "#88C0D0", "#A3BE8C", "#EBCB8B", "#D08770", "#B48EAD"] # Nord Palette (Soft Blue, Cyan, Green, Yellow, Orange, Purple)
 
-class HistoryWindow(ctk.CTkToplevel):
-    def __init__(self):
-        super().__init__()
-        self.title("Workout History")
-        self.geometry("800x700")
+class HistoryFrame(ctk.CTkFrame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
         self.configure(fg_color=BG_COLOR)
         
         # Configure grid weights
@@ -32,6 +30,16 @@ class HistoryWindow(ctk.CTkToplevel):
         self.graph_frame = ctk.CTkFrame(self, fg_color=CARD_COLOR, corner_radius=15)
         self.graph_frame.grid(row=1, column=0, padx=20, pady=(0, 20), sticky="nsew")
         
+        self.load_history()
+
+    def refresh(self):
+        # Clear existing widgets
+        for widget in self.table_frame.winfo_children():
+            widget.destroy()
+        for widget in self.graph_frame.winfo_children():
+            widget.destroy()
+        
+        # Reload
         self.load_history()
 
     def load_history(self):
@@ -150,6 +158,10 @@ class HistoryWindow(ctk.CTkToplevel):
 
             # Prepare Data for Stacking
             dates = sorted(date_map.keys())
+            
+            # Limit to last 7 days of data
+            dates = dates[-7:]
+            
             display_dates = [d[5:] for d in dates] # Show MM-DD
             max_workouts = max(len(v) for v in date_map.values())
             
@@ -197,9 +209,9 @@ class HistoryWindow(ctk.CTkToplevel):
 
 
             # Customizing Axes
-            ax.set_xlabel("Date", fontsize=10, color="#8E8E93")
-            ax.set_ylabel("Minutes", fontsize=10, color="#8E8E93")
-            ax.set_title("Daily Activity", fontsize=14, color="white", fontweight="bold", pad=15)
+            ax.set_xlabel("Date", fontsize=8, color="#8E8E93")
+            ax.set_ylabel("Minutes", fontsize=8, color="#8E8E93")
+            ax.set_title("Daily Activity", fontsize=10, color="white", fontweight="bold", pad=15)
             
             # Grid
             ax.grid(color="#3A3A3C", linestyle=':', linewidth=0.5, axis='y', alpha=0.5)
@@ -211,12 +223,12 @@ class HistoryWindow(ctk.CTkToplevel):
             ax.spines['left'].set_color("#3A3A3C")
             ax.spines['bottom'].set_color("#3A3A3C")
             
-            ax.tick_params(axis='x', colors="#8E8E93", rotation=0)
-            ax.tick_params(axis='y', colors="#8E8E93")
+            ax.tick_params(axis='x', colors="#8E8E93", rotation=0, labelsize=7)
+            ax.tick_params(axis='y', colors="#8E8E93", labelsize=7)
             
             # Remove legend to keep it clean if too many, or style it
             if max_workouts > 1:
-                legend = ax.legend(frameon=False, fontsize=8, labelcolor="#8E8E93")
+                legend = ax.legend(frameon=False, fontsize=7, labelcolor="#8E8E93")
 
             plt.tight_layout()
 
