@@ -130,7 +130,7 @@ class HistoryWindow(ctk.CTkToplevel):
                 except ValueError:
                     continue
                     
-                date_str = start_dt.strftime("%m-%d") # Short date for modern look
+                date_str = start_dt.strftime("%Y-%m-%d") # ISO format for correct sorting
                 
                 # row[5] is total_time in seconds -> convert to minutes
                 try:
@@ -150,6 +150,7 @@ class HistoryWindow(ctk.CTkToplevel):
 
             # Prepare Data for Stacking
             dates = sorted(date_map.keys())
+            display_dates = [d[5:] for d in dates] # Show MM-DD
             max_workouts = max(len(v) for v in date_map.values())
             
             # Prepare series
@@ -177,17 +178,23 @@ class HistoryWindow(ctk.CTkToplevel):
             ax.set_facecolor(CARD_COLOR)
             
             bottom = [0] * len(dates)
+            x_vals = range(len(dates))
             
             bar_containers = []
 
             # Create Bars
             for i, series in enumerate(series_list):
                 color = ACCENT_COLORS[i % len(ACCENT_COLORS)]
-                bars = ax.bar(dates, series, bottom=bottom, label=f'WO {i+1}', color=color, alpha=0.9, width=0.5, edgecolor=CARD_COLOR, linewidth=0.5)
+                bars = ax.bar(x_vals, series, bottom=bottom, label=f'WO {i+1}', color=color, alpha=0.9, width=0.5, edgecolor=CARD_COLOR, linewidth=0.5)
                 bar_containers.append(bars)
                 # Update bottom
                 for j in range(len(bottom)):
                     bottom[j] += series[j]
+
+            # Customizing Axes
+            ax.set_xticks(x_vals) # Set ticks at integer positions
+            ax.set_xticklabels(display_dates) # Label with MM-DD
+
 
             # Customizing Axes
             ax.set_xlabel("Date", fontsize=10, color="#8E8E93")
