@@ -4,6 +4,7 @@ from PIL import Image, ImageTk
 import os
 import sys
 import datetime
+import time
 import storage
 import subprocess
 from history_ui import HistoryWindow
@@ -301,7 +302,7 @@ class EMOMApp(ctk.CTk):
             else:
                 self.next_round()
 
-    def play_sound(self, sound_name="Tink", count=1):
+    def play_sound(self, sound_name="Glass", count=1):
         def _play():
             try:
                 # Default to .wav for everyone (cross-platform standard)
@@ -315,20 +316,18 @@ class EMOMApp(ctk.CTk):
                 # 1. Try target .wav
                 sound_file = os.path.join(base_path, "sounds", f"{sound_name}.wav")
                 
-                # 2. Fallback for missing Tink -> Glass
-                if not os.path.exists(sound_file) and sound_name == "Tink":
-                     fallback = os.path.join(base_path, "sounds", "Glass.wav")
-                     if os.path.exists(fallback):
-                         sound_file = fallback
-
-                # 3. Play if found
+                # 2. Play if found
                 if os.path.exists(sound_file):
-                    if is_windows:
-                        import winsound
-                        winsound.PlaySound(sound_file, winsound.SND_FILENAME | winsound.SND_ASYNC)
-                    else:
-                        for _ in range(count):
-                            subprocess.run(["afplay", sound_file])
+                    for i in range(count):
+                        if is_windows:
+                            import winsound
+                            winsound.PlaySound(sound_file, winsound.SND_FILENAME | winsound.SND_ASYNC)
+                        else:
+                            # Use Popen to avoid blocking, so we can control timing manually
+                            subprocess.Popen(["afplay", sound_file])
+                        
+                        if i < count - 1:
+                            time.sleep(0.4) # Short delay between dings
                 else:
                     print(f"Sound file not found: {sound_file}")
 
@@ -354,7 +353,8 @@ class EMOMApp(ctk.CTk):
             
             self.lbl_status.configure(text="WORK", text_color=ACCENT_GREEN)
             self.lbl_main_timer.configure(text_color=TEXT_COLOR)
-            self.play_sound("Glass", 1) # Exciting 'ding' for work start
+            self.lbl_main_timer.configure(text_color=TEXT_COLOR)
+            self.play_sound("Glass", 2) # 2x Glass at Round Start
             
             self.after(1000, self.update_timer)
             
@@ -366,6 +366,7 @@ class EMOMApp(ctk.CTk):
         self.is_running = False
         self.lbl_status.configure(text="COMPLETED!", text_color=ACCENT_BLUE)
         self.lbl_main_timer.configure(text="00:00", text_color=TEXT_COLOR)
+        self.play_sound("Glass", 3) # 3x Glass at Completion
         
         self.btn_start.configure(state="normal", text="START", fg_color=ACCENT_GREEN, text_color="black", command=self.start_workout)
         self.entry_rounds.configure(state="normal")
@@ -438,6 +439,7 @@ class EMOMApp(ctk.CTk):
         
 
         self.update_timer()
+        self.play_sound("Glass", 1) # 1x Glass at Prep Start
 
     def save_history(self, completed_rounds):
         if not self.save_history_var.get():
