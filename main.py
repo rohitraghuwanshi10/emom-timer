@@ -304,11 +304,8 @@ class EMOMApp(ctk.CTk):
     def play_sound(self, sound_name="Tink", count=1):
         def _play():
             try:
-                is_windows = sys.platform == 'win32'
-                
                 # Default to .wav for everyone (cross-platform standard)
-                # winsound only supports .wav
-                # afplay (macOS) supports .wav and .aiff
+                is_windows = sys.platform == 'win32'
                 
                 if hasattr(sys, '_MEIPASS'):
                     base_path = sys._MEIPASS
@@ -318,34 +315,17 @@ class EMOMApp(ctk.CTk):
                 # 1. Try target .wav
                 sound_file = os.path.join(base_path, "sounds", f"{sound_name}.wav")
                 
-                # 2. If missing, look for alternatives
-                if not os.path.exists(sound_file):
-                    # MacOS Legacy support for .aiff
-                    if not is_windows:
-                        aiff_path = os.path.join(base_path, "sounds", f"{sound_name}.aiff")
-                        if os.path.exists(aiff_path):
-                            sound_file = aiff_path
-                    
-                    # 3. Fallback for missing Tink -> Glass
-                    if not os.path.exists(sound_file) and sound_name == "Tink":
-                         # Try Glass.wav
-                         fallback = os.path.join(base_path, "sounds", "Glass.wav")
-                         if os.path.exists(fallback):
-                             sound_file = fallback
-                         elif not is_windows:
-                             # Try Glass.aiff
-                             fallback_aiff = os.path.join(base_path, "sounds", "Glass.aiff")
-                             if os.path.exists(fallback_aiff):
-                                 sound_file = fallback_aiff
+                # 2. Fallback for missing Tink -> Glass
+                if not os.path.exists(sound_file) and sound_name == "Tink":
+                     fallback = os.path.join(base_path, "sounds", "Glass.wav")
+                     if os.path.exists(fallback):
+                         sound_file = fallback
 
-                # 4. Play if found
+                # 3. Play if found
                 if os.path.exists(sound_file):
                     if is_windows:
-                        # winsound requires .wav
-                        # If we somehow selected an .aiff on Windows (shouldn't happen via logic above), skip
-                        if sound_file.endswith(".wav"):
-                            import winsound
-                            winsound.PlaySound(sound_file, winsound.SND_FILENAME | winsound.SND_ASYNC)
+                        import winsound
+                        winsound.PlaySound(sound_file, winsound.SND_FILENAME | winsound.SND_ASYNC)
                     else:
                         for _ in range(count):
                             subprocess.run(["afplay", sound_file])
