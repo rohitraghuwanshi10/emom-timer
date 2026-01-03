@@ -9,6 +9,7 @@ import storage
 import subprocess
 from history_ui import HistoryFrame
 from heart_rate import HeartRateMonitor
+from workout import Workout, WorkoutState
 
 # --- Modern "Liquid" / iOS Dark Mode Theme ---
 # Backgrounds
@@ -65,12 +66,8 @@ class EMOMApp(ctk.CTk):
         self.save_history_var = ctk.BooleanVar(value=True)
         self.notes_var = ctk.StringVar()
         
-        self.current_round = 0
-        self.time_left = 0
-        self.is_running = False
-        self.is_rest_phase = False
-        self.is_pre_start = False # Flag for 5s countdown
-        self.is_paused = False
+        # Logic Delegation
+        self.workout = None
         self.timer_job = None
         self.start_time = None
         self.history_frame = None
@@ -214,8 +211,6 @@ class EMOMApp(ctk.CTk):
                                            fg_color=ACCENT_BLUE, hover_color=ACCENT_BLUE, border_color=TEXT_SECONDARY)
         self.chk_history.grid(row=0, column=0, sticky="w")
         
-        # Removed old history button
-        
         # --- HISTORY TAB ---
         history_tab = self.tabview.tab("History")
         history_tab.grid_columnconfigure(0, weight=1)
@@ -234,15 +229,10 @@ class EMOMApp(ctk.CTk):
             self.btn_connect_hr.configure(text="Disconnect", fg_color=ACCENT_RED)
             
     def on_hr_update(self, valid_bpm):
-        # Update the UI variable from the callback (which might be in another thread)
-        # Tkinter is not thread-safe, but setting StringVars is usually okay. 
-        # For safety, we can use after() but let's try direct first as it's just a var.
         self.after(0, lambda: self.current_hr.set(str(valid_bpm)))
 
     def on_hr_status_change(self, status):
         self.after(0, lambda: self.hr_status.set(status))
-        
-        # Reset button state if we disconnected unexpectedly
         if status == "Disconnected":
              self.after(0, lambda: self.btn_connect_hr.configure(text="Connect HR", fg_color=ACCENT_BLUE))
              self.after(0, lambda: self.current_hr.set("--"))
@@ -255,51 +245,53 @@ class EMOMApp(ctk.CTk):
         self.destroy()
 
     def toggle_pause(self):
-        if self.is_paused:
-            # Resume
-            self.is_paused = False
-            self.btn_start.configure(text="PAUSE", fg_color=ACCENT_ORANGE, text_color="black")
-            self.update_timer()
-        else:
-            # Pause
-            self.is_paused = True
-            self.btn_start.configure(text="RESUME", fg_color=ACCENT_GREEN, text_color="black")
-            if self.timer_job:
+        if not self.workout: return
+        
+        self.workout.pause()
+        
+        if self.workout.state == WorkoutState.PAUSED:
+             self.btn_start.configure(text="RESUME", fg_color=ACCENT_GREEN, text_color="black")
+             if self.timer_job:
                 self.after_cancel(self.timer_job)
                 self.timer_job = None
+        else:
+             self.btn_start.configure(text="PAUSE", fg_color=ACCENT_ORANGE, text_color="black")
+             self.update_timer()
 
     def update_timer(self):
-        if not self.is_running or self.is_paused:
-            return
+        if not self.workout: return
 
-        # Calculate display
-        display_min = self.time_left // 60
-        display_sec = self.time_left % 60
-        self.lbl_main_timer.configure(text=f"{display_min:02}:{display_sec:02}")
+        # 1. Tick Logic
+        print("Ticking...") # Debug
+        events = self.workout.tick()
         
-        if not self.is_pre_start:
-            self.lbl_current_round.configure(text=f"{self.current_round} / {self.total_rounds}")
-        else:
-            self.lbl_status.configure(text="GET READY", text_color=ACCENT_YELLOW)
+        # 2. Handle Events
+        if events.sound_name:
+             self.play_sound(events.sound_name, events.sound_count)
 
-        # Check conditions
-        if self.time_left > 1:
-            self.time_left -= 1
+        if events.finished:
+             self.finish_workout()
+             return
+
+        # 3. Update UI
+        self.lbl_main_timer.configure(text=self.workout.time_display)
+        self.lbl_current_round.configure(text=self.workout.round_display)
+        self.lbl_status.configure(text=self.workout.status_text)
+        
+        # Update Colors based on state
+        if self.workout.state == WorkoutState.PREP:
+             self.lbl_status.configure(text_color=ACCENT_YELLOW)
+             self.lbl_main_timer.configure(text_color=ACCENT_YELLOW)
+        elif self.workout.state == WorkoutState.WORK:
+             self.lbl_status.configure(text_color=ACCENT_GREEN)
+             self.lbl_main_timer.configure(text_color=TEXT_COLOR)
+        elif self.workout.state == WorkoutState.REST:
+             self.lbl_status.configure(text_color=ACCENT_ORANGE)
+             self.lbl_main_timer.configure(text_color=ACCENT_ORANGE)
+
+        # 4. Schedule next tick if still running/active
+        if self.workout.state not in [WorkoutState.IDLE, WorkoutState.FINISHED, WorkoutState.PAUSED]:
             self.timer_job = self.after(1000, self.update_timer)
-        else:
-            # Check for Pre-Start Phase
-            if self.is_pre_start:
-                self.is_pre_start = False
-                self.next_round() # Start transition to Round 1
-                return
-
-            if not self.is_rest_phase:
-                 if self.rest_duration > 0:
-                     self.start_rest_phase()
-                 else:
-                     self.next_round()
-            else:
-                self.next_round()
 
     def play_sound(self, sound_name="Glass", count=1):
         def _play():
@@ -336,58 +328,35 @@ class EMOMApp(ctk.CTk):
         # Run in a separate thread to not block UI
         threading.Thread(target=_play, daemon=True).start()
 
-    def start_rest_phase(self):
-        self.is_rest_phase = True
-        self.time_left = self.rest_duration
-        self.lbl_status.configure(text="REST", text_color=ACCENT_ORANGE)
-        self.lbl_main_timer.configure(text_color=ACCENT_ORANGE)
-        self.play_sound("Hero", 1) # Warm, pleasant chime for rest
-        self.after(1000, self.update_timer)
-
-    def next_round(self):
-        if self.current_round < self.total_rounds:
-            self.current_round += 1
-            self.is_rest_phase = False
-            self.time_left = self.round_duration 
-            
-            self.lbl_status.configure(text="WORK", text_color=ACCENT_GREEN)
-            self.lbl_main_timer.configure(text_color=TEXT_COLOR)
-            self.lbl_main_timer.configure(text_color=TEXT_COLOR)
-            self.play_sound("Glass", 2) # 2x Glass at Round Start
-            
-            self.after(1000, self.update_timer)
-            
-        else:
-            self.finish_workout()
-
     def finish_workout(self):
-        self.save_history(self.total_rounds)
-        self.is_running = False
+        # UI Updates for Finished
         self.lbl_status.configure(text="COMPLETED!", text_color=ACCENT_BLUE)
         self.lbl_main_timer.configure(text="00:00", text_color=TEXT_COLOR)
-        self.play_sound("Glass", 3) # 3x Glass at Completion
+        
+        self.save_history(self.workout.total_rounds) # Use workout attribute directly
         
         self.btn_start.configure(state="normal", text="START", fg_color=ACCENT_GREEN, text_color="black", command=self.start_workout)
         self.entry_rounds.configure(state="normal")
         self.entry_timer.configure(state="normal")
         self.entry_rest.configure(state="normal")
+        
+        # Reset Logic container? Or keep it for inspection? 
+        # Usually fine to keep until next start or reset.
 
     def reset_workout(self):
-        if self.start_time is not None:
-            completed_rounds = max(0, self.current_round - 1)
-            self.save_history(completed_rounds)
-            self.start_time = None
+        # Call workout reset if exists
+        if self.workout:
+             # If interrupted mid-workout, maybe save? existing logic:
+             if self.start_time is not None and self.workout.current_round > 0:
+                 completed_rounds = max(0, self.workout.current_round - 1)
+                 self.save_history(completed_rounds)
+                 
+             self.workout.reset()
 
-        self.is_running = False
         if self.timer_job:
             self.after_cancel(self.timer_job)
             self.timer_job = None
             
-        self.current_round = 0
-        self.time_left = 0
-        self.is_paused = False
-        self.is_rest_phase = False
-        self.is_pre_start = False
         self.start_time = None
         
         self.lbl_main_timer.configure(text="00:00", text_color=TEXT_COLOR)
@@ -400,45 +369,42 @@ class EMOMApp(ctk.CTk):
         self.entry_rest.configure(state="normal")
         
     def start_workout(self):
-        if self.is_running and not self.is_paused:
-            return
+        # If already running
+        if self.workout and self.workout.state not in [WorkoutState.IDLE, WorkoutState.FINISHED] and self.workout.state != WorkoutState.PAUSED:
+             return 
 
-        if self.is_paused:
-            # Just Resume
+        if self.workout and self.workout.state == WorkoutState.PAUSED:
             self.toggle_pause()
             return
             
         try:
-            self.total_rounds = int(self.total_rounds_var.get())
-            self.round_duration = int(self.work_time_var.get())
+            total_rounds = int(self.total_rounds_var.get())
+            work_duration = int(self.work_time_var.get())
             rest_val = self.rest_time_var.get().strip()
-            self.rest_duration = int(rest_val) if rest_val else 0
+            rest_duration = int(rest_val) if rest_val else 0
         except ValueError:
             self.lbl_status.configure(text="INVALID INPUT", text_color=ACCENT_RED)
             return
 
+        # Instantiate Logic
+        self.workout = Workout(total_rounds, work_duration, rest_duration)
         self.start_time = datetime.datetime.now()
-        self.is_running = True
-        self.is_paused = False
-        self.is_rest_phase = False
-        self.is_pre_start = True # Start with Countdown
-        self.current_round = 0
         
-        # Setup Pre-Start Phase
-        self.time_left = 10
-        self.lbl_status.configure(text="GET READY", text_color=ACCENT_YELLOW)
-        self.lbl_main_timer.configure(text_color=ACCENT_YELLOW)
-        self.lbl_current_round.configure(text="PREP")
-        
+        # Prep UI
         self.btn_start.configure(text="PAUSE", fg_color=ACCENT_ORANGE, text_color="black", command=self.toggle_pause)
-        
         self.entry_rounds.configure(state="disabled")
         self.entry_timer.configure(state="disabled")
         self.entry_rest.configure(state="disabled")
         
-
+        # Start Logic
+        self.workout.start()
+        
+        # Start Loop
         self.update_timer()
-        self.play_sound("Glass", 1) # 1x Glass at Prep Start
+        
+        # Initial Sound
+        self.play_sound("Glass", 1)
+
 
     def save_history(self, completed_rounds):
         if not self.save_history_var.get():
@@ -446,8 +412,15 @@ class EMOMApp(ctk.CTk):
 
         try:
             end_time = datetime.datetime.now().replace(microsecond=0)
-            duration = getattr(self, 'round_duration', 0)
-            rest = getattr(self, 'rest_duration', 0)
+            
+            # Use attributes from self.workout if available, else from input (fallback)
+            if self.workout:
+                duration = self.workout.work_duration
+                rest = self.workout.rest_duration
+            else:
+                duration = int(self.work_time_var.get())
+                rest = int(self.rest_time_var.get() or 0)
+                
             total_time = completed_rounds * (duration + rest)
             
             if self.start_time:
