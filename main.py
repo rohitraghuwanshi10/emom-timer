@@ -66,6 +66,12 @@ class EMOMApp(ctk.CTk):
         self.save_history_var = ctk.BooleanVar(value=True)
         self.notes_var = ctk.StringVar()
         
+        # Incremental Rest Vars
+        self.incremental_rest_var = ctk.BooleanVar(value=False)
+        self.inc_time_var = ctk.StringVar(value="5")
+        self.inc_interval_var = ctk.StringVar(value="2")
+        self.inc_start_var = ctk.StringVar(value="5")
+        
         # Logic Delegation
         self.workout = None
         self.timer_job = None
@@ -139,6 +145,33 @@ class EMOMApp(ctk.CTk):
                                         fg_color="#2C2C2E", border_width=0, corner_radius=10, height=35, text_color=TEXT_COLOR)
         self.entry_notes.pack(fill="x")
 
+        # Incremental Rest Switch
+        self.switch_inc = ctk.CTkSwitch(self.config_frame, text="Incremental Rest", variable=self.incremental_rest_var, 
+                                        command=self.toggle_inc_options, font=(FONT_FAMILY, 12, "bold"), text_color=TEXT_SECONDARY,
+                                        progress_color=ACCENT_PURPLE)
+        self.switch_inc.grid(row=3, column=0, columnspan=3, pady=(10, 10))
+
+        # Incremental Rest Options Frame (Initially Hidden logic handled by toggle)
+        self.inc_frame = ctk.CTkFrame(self.config_frame, fg_color="transparent")
+        self.inc_frame.grid(row=4, column=0, columnspan=3, sticky="ew", padx=15, pady=(0, 15))
+        self.inc_frame.grid_remove() # Hide initially if False
+        self.inc_frame.grid_columnconfigure((0, 1, 2), weight=1)
+        
+        lbl_inc_time = ctk.CTkLabel(self.inc_frame, text="+ SECONDS", font=(FONT_FAMILY, 10, "bold"), text_color=TEXT_SECONDARY)
+        lbl_inc_time.grid(row=0, column=0)
+        self.entry_inc_time = ctk.CTkEntry(self.inc_frame, textvariable=self.inc_time_var, width=50, justify="center")
+        self.entry_inc_time.grid(row=1, column=0)
+
+        lbl_inc_int = ctk.CTkLabel(self.inc_frame, text="EVERY (RNDS)", font=(FONT_FAMILY, 10, "bold"), text_color=TEXT_SECONDARY)
+        lbl_inc_int.grid(row=0, column=1)
+        self.entry_inc_int = ctk.CTkEntry(self.inc_frame, textvariable=self.inc_interval_var, width=50, justify="center")
+        self.entry_inc_int.grid(row=1, column=1)
+
+        lbl_inc_start = ctk.CTkLabel(self.inc_frame, text="START (RND)", font=(FONT_FAMILY, 10, "bold"), text_color=TEXT_SECONDARY)
+        lbl_inc_start.grid(row=0, column=2)
+        self.entry_inc_start = ctk.CTkEntry(self.inc_frame, textvariable=self.inc_start_var, width=50, justify="center")
+        self.entry_inc_start.grid(row=1, column=2)
+        
         # 2. Timer Display (Center Stage)
         self.display_frame = ctk.CTkFrame(workout_tab, fg_color="transparent")
         self.display_frame.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
@@ -218,6 +251,12 @@ class EMOMApp(ctk.CTk):
         
         self.history_frame = HistoryFrame(history_tab) # Embed new frame
         self.history_frame.grid(row=0, column=0, sticky="nsew")
+
+    def toggle_inc_options(self):
+        if self.incremental_rest_var.get():
+            self.inc_frame.grid()
+        else:
+            self.inc_frame.grid_remove()
 
     def toggle_hr_connection(self):
         if self.hr_monitor.is_connected:
@@ -339,6 +378,12 @@ class EMOMApp(ctk.CTk):
         self.entry_rounds.configure(state="normal")
         self.entry_timer.configure(state="normal")
         self.entry_rest.configure(state="normal")
+        self.switch_inc.configure(state="normal") # Enable Swtich
+
+        if self.incremental_rest_var.get():
+             self.entry_inc_time.configure(state="normal")
+             self.entry_inc_int.configure(state="normal")
+             self.entry_inc_start.configure(state="normal")
         
         # Reset Logic container? Or keep it for inspection? 
         # Usually fine to keep until next start or reset.
@@ -367,6 +412,12 @@ class EMOMApp(ctk.CTk):
         self.entry_rounds.configure(state="normal")
         self.entry_timer.configure(state="normal")
         self.entry_rest.configure(state="normal")
+        self.switch_inc.configure(state="normal") # Enable Swtich
+
+        if self.incremental_rest_var.get():
+             self.entry_inc_time.configure(state="normal")
+             self.entry_inc_int.configure(state="normal")
+             self.entry_inc_start.configure(state="normal")
         
     def start_workout(self):
         # If already running
@@ -382,12 +433,23 @@ class EMOMApp(ctk.CTk):
             work_duration = int(self.work_time_var.get())
             rest_val = self.rest_time_var.get().strip()
             rest_duration = int(rest_val) if rest_val else 0
+            
+            # Incremental Params
+            rest_inc = 0
+            rest_interval = 1
+            rest_start = 1
+            
+            if self.incremental_rest_var.get():
+                rest_inc = int(self.inc_time_var.get())
+                rest_interval = int(self.inc_interval_var.get())
+                rest_start = int(self.inc_start_var.get())
+
         except ValueError:
             self.lbl_status.configure(text="INVALID INPUT", text_color=ACCENT_RED)
             return
 
         # Instantiate Logic
-        self.workout = Workout(total_rounds, work_duration, rest_duration)
+        self.workout = Workout(total_rounds, work_duration, rest_duration, rest_inc, rest_interval, rest_start)
         self.start_time = datetime.datetime.now()
         
         # Prep UI
@@ -395,6 +457,10 @@ class EMOMApp(ctk.CTk):
         self.entry_rounds.configure(state="disabled")
         self.entry_timer.configure(state="disabled")
         self.entry_rest.configure(state="disabled")
+        self.switch_inc.configure(state="disabled")
+        self.entry_inc_time.configure(state="disabled")
+        self.entry_inc_int.configure(state="disabled")
+        self.entry_inc_start.configure(state="disabled")
         
         # Start Logic
         self.workout.start()

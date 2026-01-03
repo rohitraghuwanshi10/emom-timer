@@ -17,10 +17,16 @@ class WorkoutEvent:
     finished: bool = False
 
 class Workout:
-    def __init__(self, total_rounds: int, work_duration: int, rest_duration: int):
+    def __init__(self, total_rounds: int, work_duration: int, rest_duration: int,
+                 rest_increment: int = 0, rest_interval: int = 1, rest_start_round: int = 1):
         self.total_rounds = total_rounds
         self.work_duration = work_duration
         self.rest_duration = rest_duration
+        
+        # Incremental Rest Config
+        self.rest_increment = rest_increment
+        self.rest_interval = max(1, rest_interval) # Avoid division by zero
+        self.rest_start_round = max(1, rest_start_round)
         
         self.current_round = 0
         self.time_left = 0
@@ -64,14 +70,11 @@ class Workout:
             self._start_round(event)
             
         elif self.state == WorkoutState.WORK:
-            if self.rest_duration > 0 and self.current_round < self.total_rounds: # Check for rest only if not last round? 
-                # Actually, usually EMOM ends after the last work (or rest if wanted). 
-                # Let's check logic: if round < total, we might rest or go to next round.
-                # If rest > 0, always rest unless it's the very last round? 
-                # Usually last round ends with Work done.
-                if self.current_round < self.total_rounds:
+            if self.rest_duration > 0 and self.current_round < self.total_rounds: 
+                 # Check if we should rest (always rest unless last round finished logic handled else where)
+                 if self.current_round < self.total_rounds:
                      self._start_rest(event)
-                else:
+                 else:
                     self._finish(event)
             else:
                 if self.current_round < self.total_rounds:
@@ -101,9 +104,33 @@ class Workout:
         event.sound_name = "Glass"
         event.sound_count = 2 # 2x Glass for Round Start
 
+    def _calculate_rest_duration(self):
+        """Calculates dynamic rest duration based on incremental settings."""
+        if self.rest_increment == 0 or self.current_round < self.rest_start_round:
+            return self.rest_duration
+            
+        # Delta: how many rounds have passed since start round (inclusive of current completion?)
+        # Logic: After Round X, we enter Rest X.
+        # User says: "starting after 5th round".
+        # So Rest after R1, R2, R3, R4 is base.
+        # Rest after R5 is base + inc.
+        
+        # When entering _start_rest, self.current_round is R5 (we just finished R5).
+        # So if current_round (5) >= start_round (5): applies.
+        
+        delta = self.current_round - self.rest_start_round
+        
+        # Interval logic: "Every 2 rounds".
+        # R5 (delta 0): (0 // 2) + 1 = 1 increment. -> 30 + 5. Correct.
+        # R6 (delta 1): (1 // 2) + 1 = 1 increment. -> 30 + 5. Correct.
+        # R7 (delta 2): (2 // 2) + 1 = 2 increments. -> 30 + 10. Correct.
+        
+        increments = (delta // self.rest_interval) + 1
+        return self.rest_duration + (increments * self.rest_increment)
+
     def _start_rest(self, event: WorkoutEvent):
         self.state = WorkoutState.REST
-        self.time_left = self.rest_duration
+        self.time_left = self._calculate_rest_duration()
         
         event.phase_changed = True
         event.sound_name = "Hero"
