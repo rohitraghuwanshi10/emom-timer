@@ -70,8 +70,8 @@ class Workout:
             self._start_round(event)
             
         elif self.state == WorkoutState.WORK:
-            if self.rest_duration > 0 and self.current_round < self.total_rounds: 
-                 # Check if we should rest (always rest unless last round finished logic handled else where)
+            # Check if we should rest (always rest unless last round finished logic handled else where)
+            if self._calculate_rest_duration() > 0 and self.current_round < self.total_rounds: 
                  if self.current_round < self.total_rounds:
                      self._start_rest(event)
                  else:
