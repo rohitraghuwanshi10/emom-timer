@@ -30,9 +30,13 @@ class HistoryFrame(ctk.CTkFrame):
         self.graph_frame = ctk.CTkFrame(self, fg_color=CARD_COLOR, corner_radius=15)
         self.graph_frame.grid(row=1, column=0, padx=20, pady=(0, 20), sticky="nsew")
         
+        self.current_profile = "Default"
         self.load_history()
 
-    def refresh(self):
+    def refresh(self, profile_name=None):
+        if profile_name is None:
+            profile_name = self.current_profile
+            
         # Clear existing widgets
         for widget in self.table_frame.winfo_children():
             widget.destroy()
@@ -40,10 +44,11 @@ class HistoryFrame(ctk.CTkFrame):
             widget.destroy()
         
         # Reload
-        self.load_history()
+        self.load_history(profile_name)
 
-    def load_history(self):
-        data = storage.load_workouts()
+    def load_history(self, profile_name="Default"):
+        self.current_profile = profile_name
+        data = storage.load_history(profile_name)
             
         if not data:
             lbl = ctk.CTkLabel(self.table_frame, text="No history found or file is empty.", font=("Arial", 16))

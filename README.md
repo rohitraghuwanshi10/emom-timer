@@ -26,16 +26,25 @@ A modern, python-based EMOM (Every Minute on the Minute) timer application built
     - **Rest Start**: Plays a relaxing "Hero" chime to signal recovery time.
 - **Self-Contained**: Audio assets are bundled with the app (`sounds/` directory), ensuring portability across macOS systems.
 
-### 📊 History & Analytics
-- **Automatic Logging**: Every completed workout is automatically saved to `workout_history.csv`.
+### � User Profiles
+- **Multi-User Support**: Create separate profiles for different users (e.g., "Rohit", "Alice").
+- **Isolated History**: History is saved to individual CSV files (e.g., `rohit_workout_history.csv`) in your Documents folder.
+- **Easy Switching**: Switch profiles instantly from the main workout screen.
+
+### 📈 Incremental Rest
+- **Dynamic Recovery**: Automatically increase your rest time as the workout gets harder.
+- **Customizable**: Configure the increment amount (e.g., +5s), interval (e.g., every 2 rounds), and starting round.
+
+### �📊 History & Analytics
+- **Automatic Logging**: Every completed workout is automatically saved.
     - Tracks: Start/End time, Rounds completed, Work/Rest settings, Total duration, and Notes.
-- **History Dashboard**: Built-in "History" window.
+- **History Dashboard**: Built-in "History" tab.
     - **Polished Table View**: Browse past workouts with formatted dates and clean headers.
-    - **Data Visualization**: A modern stacked bar chart (Nord theme) visualizes your daily workout volume over time.
+    - **Weekly Activity Graph**: A modern stacked bar chart visualizes your activity over the last 7 days.
 
 ### 📝 Workout Notes
 - Add custom **Notes** to any workout before starting or saving.
-- Notes are saved alongside performance data for future reference (e.g., "16kg kettlebell ABC workout").
+- Notes are saved alongside performance data for future reference.
 
 ### ❤️ Heart Rate Monitoring
 - **Bluetooth Integration**: Connect compatible BLE heart rate monitors (e.g., Polar H10).
@@ -60,12 +69,14 @@ python main.py
 
 ## Technical Structure
 The application is modularized for better maintainability:
-- `main.py`: Core application logic and main GUI.
-- `history_ui.py`: Manages the History Window and Data Visualization.
+- `main.py`: Core application UI and events.
+- `workout.py`: Pure business logic handling states, transitions, and timing.
+- `history_ui.py`: Manages the History Tab and Data Visualization.
 - `heart_rate.py`: Handles Bluetooth LE communication and heart rate data parsing.
 - `storage.py`: Handles CSV file operations and data persistence.
-- `sounds/`: Directory containing bundled audio assets (`Glass.aiff`, `Hero.aiff`).
+- `sounds/`: Directory containing bundled audio assets (`Glass.wav`, `Hero.wav`).
 
 ## Data Storage
-Workout data is stored locally in a `workout_history.csv` file created in the app directory.
+Workout data is stored in your user Documents folder: `~/Documents/EMOM Timer/`.
+- **Files**: `[profile_name]_workout_history.csv`.
 - **Columns**: `start_time`, `end_time`, `total_rounds_completed`, `work_time_sec`, `rest_time_sec`, `total_time_sec`, `workout_notes`.
