@@ -41,9 +41,9 @@ class EMOMApp(ctk.CTk):
 
         # --- Window Setup ---
         self.title("EMOM Workout Timer")
-        self.geometry("800x850") # Detailed History View
+        self.geometry("800x900") # Detailed History View + Inc Rest
         self.configure(fg_color=BG_COLOR)
-        self.resizable(False, False)
+        self.resizable(True, True)
         
         # Load Icon
         try:
@@ -169,10 +169,15 @@ class EMOMApp(ctk.CTk):
         # --- WORKOUT TAB ---
         workout_tab = self.tabview.tab("Workout")
         workout_tab.grid_columnconfigure(0, weight=1)
+        workout_tab.grid_rowconfigure(0, weight=0)
+        workout_tab.grid_rowconfigure(1, weight=1) # Timer takes available space
+        workout_tab.grid_rowconfigure(2, weight=0)
+        workout_tab.grid_rowconfigure(3, weight=0)
+        workout_tab.grid_rowconfigure(4, weight=0)
         
         # 1. Config Card -> Row 0
         self.config_frame = ctk.CTkFrame(workout_tab, fg_color=CARD_COLOR, corner_radius=CORNER_RADIUS)
-        self.config_frame.grid(row=0, column=0, padx=10, pady=(5, 10), sticky="ew")
+        self.config_frame.grid(row=0, column=0, padx=10, pady=(5, 5), sticky="ew")
         self.config_frame.grid_columnconfigure((0, 1, 2), weight=1)
         
         # Labels (Secondary Text)
@@ -240,7 +245,7 @@ class EMOMApp(ctk.CTk):
         
         # 2. Timer Display (Center Stage) -> Row 1
         self.display_frame = ctk.CTkFrame(workout_tab, fg_color="transparent")
-        self.display_frame.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
+        self.display_frame.grid(row=1, column=0, padx=10, pady=(5, 5), sticky="nsew")
         self.display_frame.grid_columnconfigure(0, weight=1)
         
         # Round Indicator
@@ -302,7 +307,7 @@ class EMOMApp(ctk.CTk):
 
         # 5. Footer (History) -> Row 4
         self.footer_frame = ctk.CTkFrame(workout_tab, fg_color="transparent")
-        self.footer_frame.grid(row=4, column=0, padx=20, pady=(0, 20), sticky="ew")
+        self.footer_frame.grid(row=4, column=0, padx=20, pady=(0, 10), sticky="ew")
         self.footer_frame.grid_columnconfigure(1, weight=1)
 
         self.chk_history = ctk.CTkCheckBox(self.footer_frame, text="Save History", variable=self.save_history_var,
