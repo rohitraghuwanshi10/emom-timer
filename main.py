@@ -96,15 +96,23 @@ class EMOMApp(ctk.CTk):
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def load_profiles(self):
-        self.available_profiles = storage.get_available_profiles()
+        self.available_profiles = storage.load_profiles()
         if self.available_profiles:
-            self.profile_var.set(self.available_profiles[0])
+            last = storage.get_last_used_profile()
+            if last in self.available_profiles:
+                self.profile_var.set(last)
+                target = last
+            else:
+                self.profile_var.set(self.available_profiles[0])
+                target = self.available_profiles[0]
+                
             if hasattr(self, 'profile_menu'):
                 self.profile_menu.configure(values=self.available_profiles)
-                self.change_profile(self.available_profiles[0])
+                self.change_profile(target)
 
     def change_profile(self, choice):
         print(f"Profile changed to: {choice}")
+        storage.update_last_used_profile(choice)
         if self.history_frame:
             self.history_frame.refresh(choice)
 
@@ -114,76 +122,87 @@ class EMOMApp(ctk.CTk):
         if new_name and new_name.strip():
             clean_name = new_name.strip().replace("_", " ").title()
             if clean_name not in self.available_profiles:
-                self.available_profiles.append(clean_name)
-                self.available_profiles.sort()
+                # Save to JSON
+                storage.add_profile(clean_name)
+                
+                # Refresh list
+                self.available_profiles = storage.load_profiles()
+                
                 self.profile_menu.configure(values=self.available_profiles)
                 self.profile_var.set(clean_name)
                 self.change_profile(clean_name)
 
     def _create_widgets(self):
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=0) # Header
+        self.grid_rowconfigure(1, weight=1) # Tabs
+
+        # 0. Global Header Frame (for Profile Selector)
+        self.header_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.header_frame.grid(row=0, column=0, padx=10, pady=(10, 0), sticky="ew")
+        self.header_frame.grid_columnconfigure(0, weight=1) # Spacer to push right
+
+        # Profile UI (Top Right)
+        self.profile_ui = ctk.CTkFrame(self.header_frame, fg_color="transparent")
+        self.profile_ui.grid(row=0, column=1, sticky="e")
+        
+        lbl_profile = ctk.CTkLabel(self.profile_ui, text="Profile:", font=(FONT_FAMILY, 12), text_color=TEXT_SECONDARY)
+        lbl_profile.pack(side="left", padx=(0, 5))
+        
+        self.profile_menu = ctk.CTkOptionMenu(self.profile_ui, variable=self.profile_var, 
+                                              values=["Default"], command=self.change_profile,
+                                              fg_color=CARD_COLOR, button_color=CARD_COLOR,
+                                              button_hover_color="#3A3A3C",
+                                              text_color=TEXT_COLOR, font=(FONT_FAMILY, 12))
+        self.profile_menu.pack(side="left", padx=(0, 5))
+        
+        btn_add_profile = ctk.CTkButton(self.profile_ui, text="+", command=self.add_profile, width=24, height=24,
+                                        fg_color="transparent", hover_color="#3A3A3C", text_color=TEXT_SECONDARY, font=(FONT_FAMILY, 16))
+        btn_add_profile.pack(side="left")
 
         # Tab View
         self.tabview = ctk.CTkTabview(self, fg_color="transparent", corner_radius=15, width=460)
-        self.tabview.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        self.tabview.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
         self.tabview.add("Workout")
         self.tabview.add("History")
         
         # --- WORKOUT TAB ---
         workout_tab = self.tabview.tab("Workout")
         workout_tab.grid_columnconfigure(0, weight=1)
-
-        # 1. Config Card
+        
+        # 1. Config Card -> Row 0
         self.config_frame = ctk.CTkFrame(workout_tab, fg_color=CARD_COLOR, corner_radius=CORNER_RADIUS)
-        self.config_frame.grid(row=0, column=0, padx=10, pady=(20, 10), sticky="ew")
+        self.config_frame.grid(row=0, column=0, padx=10, pady=(5, 10), sticky="ew")
         self.config_frame.grid_columnconfigure((0, 1, 2), weight=1)
         
-        # Profile Selector (Top of Config)
-        self.profile_frame = ctk.CTkFrame(self.config_frame, fg_color="transparent")
-        self.profile_frame.grid(row=0, column=0, columnspan=3, sticky="ew", padx=15, pady=(15, 5))
-        
-        lbl_profile = ctk.CTkLabel(self.profile_frame, text="PROFILE", font=(FONT_FAMILY, 12, "bold"), text_color=TEXT_SECONDARY)
-        lbl_profile.pack(side="left", padx=(0, 10))
-        
-        self.profile_menu = ctk.CTkOptionMenu(self.profile_frame, variable=self.profile_var, 
-                                              values=["Default"], command=self.change_profile,
-                                              fg_color=ACCENT_PURPLE, button_color=ACCENT_PURPLE,
-                                              text_color="white", font=(FONT_FAMILY, 12, "bold"))
-        self.profile_menu.pack(side="left", fill="x", expand=True)
-        
-        btn_add_profile = ctk.CTkButton(self.profile_frame, text="+", command=self.add_profile, width=30,
-                                        fg_color=CARD_COLOR, hover_color="#3A3A3C", text_color=ACCENT_PURPLE, font=(FONT_FAMILY, 18, "bold"))
-        btn_add_profile.pack(side="left", padx=(10, 0))
-
         # Labels (Secondary Text)
         self.lbl_rounds = ctk.CTkLabel(self.config_frame, text="ROUNDS", font=(FONT_FAMILY, 12, "bold"), text_color=TEXT_SECONDARY)
-        self.lbl_rounds.grid(row=1, column=0, pady=(5, 5))
+        self.lbl_rounds.grid(row=0, column=0, pady=(15, 5))
         
         self.lbl_work = ctk.CTkLabel(self.config_frame, text="WORK (SEC)", font=(FONT_FAMILY, 12, "bold"), text_color=TEXT_SECONDARY)
-        self.lbl_work.grid(row=1, column=1, pady=(5, 5))
+        self.lbl_work.grid(row=0, column=1, pady=(15, 5))
         
         self.lbl_rest = ctk.CTkLabel(self.config_frame, text="REST (SEC)", font=(FONT_FAMILY, 12, "bold"), text_color=TEXT_SECONDARY)
-        self.lbl_rest.grid(row=1, column=2, pady=(5, 5))
+        self.lbl_rest.grid(row=0, column=2, pady=(15, 5))
 
         # Inputs (Big Number Style)
         entry_font = (FONT_FAMILY, 24, "bold")
         
         self.entry_rounds = ctk.CTkEntry(self.config_frame, textvariable=self.total_rounds_var, width=60, 
                                          font=entry_font, justify="center", fg_color="transparent", border_width=0, text_color=ACCENT_BLUE)
-        self.entry_rounds.grid(row=2, column=0, pady=(0, 15))
+        self.entry_rounds.grid(row=1, column=0, pady=(0, 15))
 
         self.entry_timer = ctk.CTkEntry(self.config_frame, textvariable=self.work_time_var, width=60, 
                                         font=entry_font, justify="center", fg_color="transparent", border_width=0, text_color=ACCENT_GREEN)
-        self.entry_timer.grid(row=2, column=1, pady=(0, 15))
+        self.entry_timer.grid(row=1, column=1, pady=(0, 15))
 
         self.entry_rest = ctk.CTkEntry(self.config_frame, textvariable=self.rest_time_var, width=60, 
                                        font=entry_font, justify="center", fg_color="transparent", border_width=0, text_color=ACCENT_ORANGE)
-        self.entry_rest.grid(row=2, column=2, pady=(0, 15))
+        self.entry_rest.grid(row=1, column=2, pady=(0, 15))
 
         # Divider for Notes
         self.notes_frame = ctk.CTkFrame(self.config_frame, fg_color="transparent")
-        self.notes_frame.grid(row=3, column=0, columnspan=3, sticky="ew", padx=15, pady=(0, 15))
+        self.notes_frame.grid(row=2, column=0, columnspan=3, sticky="ew", padx=15, pady=(0, 15))
         
         self.lbl_notes = ctk.CTkLabel(self.notes_frame, text="NOTES", font=(FONT_FAMILY, 12, "bold"), text_color=TEXT_SECONDARY)
         self.lbl_notes.pack(anchor="w", pady=(0, 5))
@@ -196,11 +215,11 @@ class EMOMApp(ctk.CTk):
         self.switch_inc = ctk.CTkSwitch(self.config_frame, text="Incremental Rest", variable=self.incremental_rest_var, 
                                         command=self.toggle_inc_options, font=(FONT_FAMILY, 12, "bold"), text_color=TEXT_SECONDARY,
                                         progress_color=ACCENT_PURPLE)
-        self.switch_inc.grid(row=4, column=0, columnspan=3, pady=(10, 10))
+        self.switch_inc.grid(row=3, column=0, columnspan=3, pady=(10, 10))
 
         # Incremental Rest Options Frame (Initially Hidden logic handled by toggle)
         self.inc_frame = ctk.CTkFrame(self.config_frame, fg_color="transparent")
-        self.inc_frame.grid(row=5, column=0, columnspan=3, sticky="ew", padx=15, pady=(0, 15))
+        self.inc_frame.grid(row=4, column=0, columnspan=3, sticky="ew", padx=15, pady=(0, 15))
         self.inc_frame.grid_remove() # Hide initially if False
         self.inc_frame.grid_columnconfigure((0, 1, 2), weight=1)
         
@@ -219,7 +238,7 @@ class EMOMApp(ctk.CTk):
         self.entry_inc_start = ctk.CTkEntry(self.inc_frame, textvariable=self.inc_start_var, width=50, justify="center")
         self.entry_inc_start.grid(row=1, column=2)
         
-        # 2. Timer Display (Center Stage)
+        # 2. Timer Display (Center Stage) -> Row 1
         self.display_frame = ctk.CTkFrame(workout_tab, fg_color="transparent")
         self.display_frame.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
         self.display_frame.grid_columnconfigure(0, weight=1)
@@ -248,8 +267,8 @@ class EMOMApp(ctk.CTk):
         # Status
         self.lbl_status = ctk.CTkLabel(self.display_frame, text="READY", font=(FONT_FAMILY, 18, "bold"), text_color=ACCENT_BLUE)
         self.lbl_status.grid(row=3, column=0, sticky="n", pady=(10, 0))
-
-        # 3. Controls (Bottom)
+        
+        # 3. Controls (Bottom) -> Row 2
         self.button_frame = ctk.CTkFrame(workout_tab, fg_color="transparent")
         self.button_frame.grid(row=2, column=0, padx=20, pady=(0, 20), sticky="ew")
         self.button_frame.grid_columnconfigure((0, 1), weight=1)
@@ -265,8 +284,8 @@ class EMOMApp(ctk.CTk):
                                        fg_color=CARD_COLOR, hover_color="#3A3A3C", 
                                        font=(FONT_FAMILY, 18, "bold"), text_color=ACCENT_RED)
         self.btn_reset.grid(row=0, column=1, padx=(10, 0), sticky="ew")
-        
-        # 4. Heart Rate Controls
+
+        # 4. Heart Rate Controls -> Row 3
         self.hr_control_frame = ctk.CTkFrame(workout_tab, fg_color=CARD_COLOR, corner_radius=15)
         self.hr_control_frame.grid(row=3, column=0, padx=20, pady=(0, 20), sticky="ew")
         self.hr_control_frame.grid_columnconfigure(0, weight=1)
@@ -281,7 +300,7 @@ class EMOMApp(ctk.CTk):
                                             font=(FONT_FAMILY, 12, "bold"))
         self.btn_connect_hr.grid(row=0, column=1, padx=10, pady=8, sticky="e")
 
-        # 5. Footer (History)
+        # 5. Footer (History) -> Row 4
         self.footer_frame = ctk.CTkFrame(workout_tab, fg_color="transparent")
         self.footer_frame.grid(row=4, column=0, padx=20, pady=(0, 20), sticky="ew")
         self.footer_frame.grid_columnconfigure(1, weight=1)
