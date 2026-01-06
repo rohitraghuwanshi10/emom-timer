@@ -85,6 +85,8 @@ class EMOMApp(ctk.CTk):
         # --- Heart Rate Variables ---
         self.hr_monitor = HeartRateMonitor(on_hr_update=self.on_hr_update, on_status_change=self.on_hr_status_change)
         self.current_hr = ctk.StringVar(value="--")
+        self.hr_zone = ctk.StringVar(value="")
+        self.current_max_hr = None
         self.hr_status = ctk.StringVar(value="Disconnected")
         self.is_hr_connecting = False
         
@@ -113,6 +115,11 @@ class EMOMApp(ctk.CTk):
     def change_profile(self, choice):
         print(f"Profile changed to: {choice}")
         storage.update_last_used_profile(choice)
+        
+        # Cache Max HR
+        details = storage.get_profile_details(choice)
+        self.current_max_hr = details.get("max_hr")
+        
         if self.history_frame:
             self.history_frame.refresh(choice)
 
@@ -156,6 +163,10 @@ class EMOMApp(ctk.CTk):
                                               text_color=TEXT_COLOR, font=(FONT_FAMILY, 12))
         self.profile_menu.pack(side="left", padx=(0, 5))
         
+        btn_settings = ctk.CTkButton(self.profile_ui, text="⚙️", command=self.open_profile_settings, width=24, height=24,
+                                        fg_color="transparent", hover_color="#3A3A3C", text_color=TEXT_SECONDARY, font=(FONT_FAMILY, 14))
+        btn_settings.pack(side="left", padx=(0, 0))
+
         btn_add_profile = ctk.CTkButton(self.profile_ui, text="+", command=self.add_profile, width=24, height=24,
                                         fg_color="transparent", hover_color="#3A3A3C", text_color=TEXT_SECONDARY, font=(FONT_FAMILY, 16))
         btn_add_profile.pack(side="left")
@@ -243,35 +254,38 @@ class EMOMApp(ctk.CTk):
         self.entry_inc_start = ctk.CTkEntry(self.inc_frame, textvariable=self.inc_start_var, width=50, justify="center")
         self.entry_inc_start.grid(row=1, column=2)
         
-        # 2. Timer Display (Center Stage) -> Row 1
-        self.display_frame = ctk.CTkFrame(workout_tab, fg_color="transparent")
+        # 2. Timer Display (Monitor Card) -> Row 1
+        self.display_frame = ctk.CTkFrame(workout_tab, fg_color=CARD_COLOR, corner_radius=CORNER_RADIUS)
         self.display_frame.grid(row=1, column=0, padx=10, pady=(5, 5), sticky="nsew")
         self.display_frame.grid_columnconfigure(0, weight=1)
+        self.display_frame.grid_columnconfigure(1, weight=1)
         
-        # Round Indicator
-        self.lbl_current_round = ctk.CTkLabel(self.display_frame, text="0 / 0", font=(FONT_FAMILY, 90, "bold"), text_color=TEXT_SECONDARY)
-        self.lbl_current_round.grid(row=0, column=0, sticky="s", pady=(0, 10))
+        # Row 0: Header (Rounds | Status)
+        self.lbl_current_round = ctk.CTkLabel(self.display_frame, text="ROUND 0 / 0", font=(FONT_FAMILY, 24, "bold"), text_color=TEXT_SECONDARY)
+        self.lbl_current_round.grid(row=0, column=0, sticky="w", padx=20, pady=(15, 0))
 
-        # Main Timer
-        self.lbl_main_timer = ctk.CTkLabel(self.display_frame, text="00:00", font=(FONT_FAMILY, 90, "bold"), text_color=TEXT_COLOR)
-        self.lbl_main_timer.grid(row=1, column=0)
+        self.lbl_status = ctk.CTkLabel(self.display_frame, text="READY", font=(FONT_FAMILY, 24, "bold"), text_color=ACCENT_BLUE)
+        self.lbl_status.grid(row=0, column=1, sticky="e", padx=20, pady=(15, 0))
 
-        # Heart Rate Display (Embedded in Timer Area)
+        # Row 1: Main Timer
+        self.lbl_main_timer = ctk.CTkLabel(self.display_frame, text="00:00", font=(FONT_FAMILY, 120, "bold"), text_color=TEXT_COLOR)
+        self.lbl_main_timer.grid(row=1, column=0, columnspan=2, pady=(10, 10))
+
+        # Row 2: Heart Rate Display
         self.hr_frame = ctk.CTkFrame(self.display_frame, fg_color="transparent")
-        self.hr_frame.grid(row=2, column=0, sticky="n", pady=(5, 0))
+        self.hr_frame.grid(row=2, column=0, columnspan=2, sticky="n", pady=(0, 20))
         
-        self.lbl_hr_icon = ctk.CTkLabel(self.hr_frame, text="♥", font=(FONT_FAMILY, 24), text_color=ACCENT_RED)
-        self.lbl_hr_icon.pack(side="left", padx=(0, 5))
+        self.lbl_hr_icon = ctk.CTkLabel(self.hr_frame, text="♥", font=(FONT_FAMILY, 50), text_color=ACCENT_RED)
+        self.lbl_hr_icon.pack(side="left", padx=(0, 10))
         
-        self.lbl_hr_value = ctk.CTkLabel(self.hr_frame, textvariable=self.current_hr, font=(FONT_FAMILY, 24, "bold"), text_color=TEXT_COLOR)
+        self.lbl_hr_value = ctk.CTkLabel(self.hr_frame, textvariable=self.current_hr, font=(FONT_FAMILY, 90, "bold"), text_color=TEXT_COLOR)
         self.lbl_hr_value.pack(side="left")
         
-        self.lbl_hr_unit = ctk.CTkLabel(self.hr_frame, text="BPM", font=(FONT_FAMILY, 14, "bold"), text_color=TEXT_SECONDARY)
-        self.lbl_hr_unit.pack(side="left", padx=(5, 0), pady=(8, 0))
-
-        # Status
-        self.lbl_status = ctk.CTkLabel(self.display_frame, text="READY", font=(FONT_FAMILY, 18, "bold"), text_color=ACCENT_BLUE)
-        self.lbl_status.grid(row=3, column=0, sticky="n", pady=(10, 0))
+        self.lbl_hr_unit = ctk.CTkLabel(self.hr_frame, text="BPM", font=(FONT_FAMILY, 20, "bold"), text_color=TEXT_SECONDARY)
+        self.lbl_hr_unit.pack(side="left", padx=(5, 0), pady=(30, 0))
+        
+        self.lbl_hr_zone = ctk.CTkLabel(self.hr_frame, textvariable=self.hr_zone, font=(FONT_FAMILY, 50, "bold"), text_color=ACCENT_BLUE)
+        self.lbl_hr_zone.pack(side="left", padx=(20, 0), pady=(15, 0))
         
         # 3. Controls (Bottom) -> Row 2
         self.button_frame = ctk.CTkFrame(workout_tab, fg_color="transparent")
@@ -323,6 +337,57 @@ class EMOMApp(ctk.CTk):
         self.history_frame = HistoryFrame(history_tab) # Embed new frame
         self.history_frame.grid(row=0, column=0, sticky="nsew")
 
+    def open_profile_settings(self):
+        current_profile = self.profile_var.get()
+        details = storage.get_profile_details(current_profile)
+        current_max_hr = details.get("max_hr", "")
+        
+        # Create Dialog
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Profile Settings")
+        dialog.geometry("300x200")
+        dialog.resizable(False, False)
+        
+        # Make modal-like
+        dialog.transient(self)
+        dialog.grab_set()
+        
+        # Center Content
+        dialog.grid_columnconfigure(0, weight=1)
+        
+        lbl_title = ctk.CTkLabel(dialog, text=f"Edit {current_profile}", font=(FONT_FAMILY, 16, "bold"))
+        lbl_title.pack(pady=(20, 10))
+        
+        # Max HR Input
+        frm_hr = ctk.CTkFrame(dialog, fg_color="transparent")
+        frm_hr.pack(pady=10)
+        
+        ctk.CTkLabel(frm_hr, text="Max Heart Rate:", font=(FONT_FAMILY, 12)).pack(side="left", padx=5)
+        entry_max_hr = ctk.CTkEntry(frm_hr, width=60, justify="center")
+        entry_max_hr.pack(side="left", padx=5)
+        
+        if current_max_hr:
+            entry_max_hr.insert(0, str(current_max_hr))
+            
+        def save():
+            try:
+                val = entry_max_hr.get().strip()
+                if val:
+                    max_hr = int(val)
+                else:
+                    max_hr = None
+                    
+                storage.update_profile(current_profile, max_hr=max_hr)
+                self.current_max_hr = max_hr # Update Cache
+                dialog.destroy()
+                print(f"Saved Settings for {current_profile}")
+            except ValueError:
+                print("Invalid Max HR input")
+                # Could add error label here
+        
+        btn_save = ctk.CTkButton(dialog, text="Save", command=save, fg_color=ACCENT_BLUE, width=100)
+        btn_save.pack(pady=20)
+
     def toggle_inc_options(self):
         if self.incremental_rest_var.get():
             self.inc_frame.grid()
@@ -334,18 +399,61 @@ class EMOMApp(ctk.CTk):
             self.hr_monitor.stop()
             self.btn_connect_hr.configure(text="Connect HR", fg_color=ACCENT_BLUE)
             self.current_hr.set("--")
+            self.hr_zone.set("")
         else:
             self.hr_monitor.start()
             self.btn_connect_hr.configure(text="Disconnect", fg_color=ACCENT_RED)
             
     def on_hr_update(self, valid_bpm):
         self.after(0, lambda: self.current_hr.set(str(valid_bpm)))
+        
+        # Zone Calc
+        if self.current_max_hr:
+            try:
+                bpm = int(valid_bpm)
+                max_hr = int(self.current_max_hr)
+                pct = (bpm / max_hr) * 100
+                
+                zone = ""
+                color = TEXT_SECONDARY
+                
+                if pct < 50:
+                    zone = "WARM UP"
+                    color = TEXT_SECONDARY
+                elif 50 <= pct < 60:
+                    zone = "ZONE 1"
+                    color = ACCENT_BLUE 
+                elif 60 <= pct < 70:
+                    zone = "ZONE 2"
+                    color = ACCENT_GREEN
+                elif 70 <= pct < 80:
+                    zone = "ZONE 3"
+                    color = ACCENT_YELLOW
+                elif 80 <= pct < 90:
+                    zone = "ZONE 4"
+                    color = ACCENT_ORANGE
+                elif pct >= 90:
+                    zone = "ZONE 5"
+                    color = ACCENT_RED
+                
+                print(f"[DEBUG] BPM:{bpm} Max:{max_hr} Pct:{pct:.1f}% Zone:{zone}")
+                self.after(0, lambda z=zone, c=color: self._update_zone_ui(z, c))
+            except Exception as e:
+                print(f"Error calcing zone: {e}")
+        else:
+             print(f"[DEBUG] No Max HR set (BPM: {valid_bpm})")
+             self.after(0, lambda: self._update_zone_ui("", TEXT_SECONDARY))
+
+    def _update_zone_ui(self, text, color):
+        self.hr_zone.set(text)
+        self.lbl_hr_zone.configure(text_color=color)
 
     def on_hr_status_change(self, status):
         self.after(0, lambda: self.hr_status.set(status))
         if status == "Disconnected":
              self.after(0, lambda: self.btn_connect_hr.configure(text="Connect HR", fg_color=ACCENT_BLUE))
              self.after(0, lambda: self.current_hr.set("--"))
+             self.after(0, lambda: self.hr_zone.set(""))
         elif status.endswith("Connected") and not status == "Disconnected":
              self.after(0, lambda: self.btn_connect_hr.configure(text="Disconnect", fg_color=ACCENT_RED))
 

@@ -111,7 +111,7 @@ def load_profiles():
     sorted_profiles = sorted(list(profiles_data["profiles"].keys()))
     return sorted_profiles
 
-def add_profile(profile_name):
+def add_profile(profile_name, max_hr=None):
     _ensure_dir()
     
     # Load existing
@@ -128,13 +128,47 @@ def add_profile(profile_name):
         filename = f"{profile_name.lower().replace(' ', '_')}_workout_history.csv"
         data["profiles"][profile_name] = {
             "filename": filename,
-            "created_at": datetime.datetime.now().isoformat()
+            "created_at": datetime.datetime.now().isoformat(),
+            "max_hr": max_hr
         }
         
         with open(PROFILES_FILE, 'w') as f:
             json.dump(data, f, indent=4)
             
     return data["profiles"][profile_name]["filename"]
+
+def update_profile(profile_name, max_hr=None):
+    """Updates existing profile metadata."""
+    if not os.path.exists(PROFILES_FILE):
+        return
+        
+    try:
+        with open(PROFILES_FILE, 'r') as f:
+            data = json.load(f)
+            
+        if profile_name in data["profiles"]:
+            # Update fields if provided
+            if max_hr is not None:
+                data["profiles"][profile_name]["max_hr"] = max_hr
+                
+            with open(PROFILES_FILE, 'w') as f:
+                json.dump(data, f, indent=4)
+                print(f"Updated profile {profile_name}: max_hr={max_hr}")
+                
+    except Exception as e:
+        print(f"Error updating profile: {e}")
+
+def get_profile_details(profile_name):
+    """Returns dict of profile metadata or empty dict."""
+    if not os.path.exists(PROFILES_FILE):
+        return {}
+        
+    try:
+        with open(PROFILES_FILE, 'r') as f:
+            data = json.load(f)
+            return data.get("profiles", {}).get(profile_name, {})
+    except Exception:
+        return {}
 
 def get_last_used_profile():
     if os.path.exists(PROFILES_FILE):

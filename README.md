@@ -28,8 +28,9 @@ A modern, python-based EMOM (Every Minute on the Minute) timer application built
 
 ### � User Profiles
 - **Multi-User Support**: Create separate profiles for different users (e.g., "Rohit", "Alice").
-- **Isolated History**: History is saved to individual CSV files (e.g., `rohit_workout_history.csv`) in your Documents folder.
-- **Easy Switching**: Switch profiles instantly from the main workout screen.
+- **Max Heart Rate**: Set your Max HR in profile settings to unlock zone tracking.
+- **Isolated History**: History is saved to individual CSV files in your Documents folder.
+- **Global Selector**: Always-visible profile switcher for quick access.
 
 ### 📈 Incremental Rest
 - **Dynamic Recovery**: Automatically increase your rest time as the workout gets harder.
@@ -46,11 +47,17 @@ A modern, python-based EMOM (Every Minute on the Minute) timer application built
 - Add custom **Notes** to any workout before starting or saving.
 - Notes are saved alongside performance data for future reference.
 
-### ❤️ Heart Rate Monitoring
+### ❤️ Heart Rate Intelligence
 - **Bluetooth Integration**: Connect compatible BLE heart rate monitors (e.g., Polar H10).
-- **Real-Time Tracking**: View your live heart rate (BPM) during workouts.
-- **Smart Connection**: Displays the specific name of your connected device.
+- **Zone Training**: Real-time display of your Training Zone (1-5) based on your Max HR.
+    - Color-coded feedback (Blue → Red) for instant intensity awareness.
+- **Smart Display**: Large, easy-to-read BPM and Zone indicators integrated into the main monitor.
 - **Status Indicators**: Visual feedback for connection states (Scanning, Connecting, Connected).
+
+### 🖥️ Modern Experience
+- **Monitor Card Layout**: A concise, dashboard-style view grouping Timer, Rounds, and Heart Rate.
+- **Resizable Window**: Adjust the app window to fit your screen setup.
+- **Global Header**: Easy access to profiles and settings from anywhere in the app.
 
 ## Getting Started
 
