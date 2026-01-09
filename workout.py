@@ -18,7 +18,8 @@ class WorkoutEvent:
 
 class Workout:
     def __init__(self, total_rounds: int, work_duration: int, rest_duration: int,
-                 rest_increment: int = 0, rest_interval: int = 1, rest_start_round: int = 1):
+                 rest_increment: int = 0, rest_interval: int = 1, rest_start_round: int = 1,
+                 max_prework_hr: int = None, auto_regulation: bool = False):
         self.total_rounds = total_rounds
         self.work_duration = work_duration
         self.rest_duration = rest_duration
@@ -27,6 +28,11 @@ class Workout:
         self.rest_increment = rest_increment
         self.rest_interval = max(1, rest_interval) # Avoid division by zero
         self.rest_start_round = max(1, rest_start_round)
+        
+        # Auto-Regulation
+        self.max_prework_hr = max_prework_hr
+        self.auto_regulation = auto_regulation
+        self.waiting_for_hr = False
         
         self.current_round = 0
         self.time_left = 0
@@ -51,7 +57,7 @@ class Workout:
         self.current_round = 0
         self.time_left = 0
         
-    def tick(self) -> WorkoutEvent:
+    def tick(self, current_hr: int = None) -> WorkoutEvent:
         event = WorkoutEvent()
         
         if self.state in [WorkoutState.IDLE, WorkoutState.PAUSED, WorkoutState.FINISHED]:
@@ -61,11 +67,11 @@ class Workout:
             self.time_left -= 1
         else:
             # Time is up, transition needed
-            self._handle_transition(event)
+            self._handle_transition(event, current_hr)
             
         return event
 
-    def _handle_transition(self, event: WorkoutEvent):
+    def _handle_transition(self, event: WorkoutEvent, current_hr: int = None):
         if self.state == WorkoutState.PREP:
             self._start_round(event)
             
@@ -83,6 +89,15 @@ class Workout:
                     self._finish(event)
                     
         elif self.state == WorkoutState.REST:
+            # Check Auto-Regulation before starting next round
+            if self.auto_regulation and self.max_prework_hr and current_hr is not None:
+                if current_hr > self.max_prework_hr:
+                    # HR too high, extend rest (wait)
+                    self.waiting_for_hr = True
+                    return # Do not transition
+            
+            self.waiting_for_hr = False
+            
             if self.current_round < self.total_rounds:
                 self._start_round(event)
             else:
@@ -149,7 +164,10 @@ class Workout:
         if self.state == WorkoutState.IDLE: return "READY"
         if self.state == WorkoutState.PREP: return "GET READY"
         if self.state == WorkoutState.WORK: return "WORK"
-        if self.state == WorkoutState.REST: return "REST"
+        if self.state == WorkoutState.REST: 
+            if self.waiting_for_hr:
+                return "RECOVER HR"
+            return "REST"
         if self.state == WorkoutState.PAUSED: return "PAUSED"
         if self.state == WorkoutState.FINISHED: return "COMPLETED!"
         return ""

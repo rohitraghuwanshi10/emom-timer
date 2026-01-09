@@ -53,6 +53,10 @@ A modern, python-based EMOM (Every Minute on the Minute) timer application built
     - Color-coded feedback (Blue → Red) for instant intensity awareness.
 - **Smart Display**: Large, easy-to-read BPM and Zone indicators integrated into the main monitor.
 - **Status Indicators**: Visual feedback for connection states (Scanning, Connecting, Connected).
+- **Auto-Regulation (New)**: 
+    - **Smart Rest**: Extends your rest period automatically if your heart rate is too high to start the next round safely.
+    - **Configurable Threshold**: Set a custom "Max Pre-Work HR" in your profile.
+    - **Toggle**: Enable/Disable this feature with a simple checkbox (only active when HR monitor is connected).
 
 ### 🖥️ Modern Experience
 - **Monitor Card Layout**: A concise, dashboard-style view grouping Timer, Rounds, and Heart Rate.

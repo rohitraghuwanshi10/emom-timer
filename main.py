@@ -35,6 +35,36 @@ FONT_FAMILY = "Arial"        # Fallback to Arial, ideally SF Pro on Mac
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("dark-blue")
 
+class ToolTip:
+    def __init__(self, widget, text):
+        self.widget = widget
+        self.text = text
+        self.tooltip_window = None
+        self.widget.bind("<Enter>", self.show_tooltip)
+        self.widget.bind("<Leave>", self.hide_tooltip)
+
+    def show_tooltip(self, event=None):
+        if self.tooltip_window or not self.text:
+            return
+        x, y, _, _ = self.widget.bbox("insert") 
+        x += self.widget.winfo_rootx() + 25
+        y += self.widget.winfo_rooty() + 25
+        
+        self.tooltip_window = ctk.CTkToplevel(self.widget)
+        self.tooltip_window.wm_overrideredirect(True)
+        self.tooltip_window.wm_geometry(f"+{x}+{y}")
+        
+        # Make transparent/floating look
+        # Note: CTkLabel inside CTkToplevel automatically inherits theme
+        label = ctk.CTkLabel(self.tooltip_window, text=self.text, fg_color="#333333", 
+                             text_color="#FFFFFF", corner_radius=6, padx=10, pady=5, font=("Arial", 11))
+        label.pack()
+
+    def hide_tooltip(self, event=None):
+        if self.tooltip_window:
+            self.tooltip_window.destroy()
+            self.tooltip_window = None
+
 class EMOMApp(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -71,6 +101,9 @@ class EMOMApp(ctk.CTk):
         self.inc_time_var = ctk.StringVar(value="5")
         self.inc_interval_var = ctk.StringVar(value="2")
         self.inc_start_var = ctk.StringVar(value="5")
+
+        # Auto Regulation
+        self.auto_regulation_var = ctk.BooleanVar(value=False)
         
         # Profile Vars
         self.profile_var = ctk.StringVar(value="Default")
@@ -86,7 +119,10 @@ class EMOMApp(ctk.CTk):
         self.hr_monitor = HeartRateMonitor(on_hr_update=self.on_hr_update, on_status_change=self.on_hr_status_change)
         self.current_hr = ctk.StringVar(value="--")
         self.hr_zone = ctk.StringVar(value="")
+        self.current_hr = ctk.StringVar(value="--")
+        self.hr_zone = ctk.StringVar(value="")
         self.current_max_hr = None
+        self.current_max_prework_hr = None
         self.hr_status = ctk.StringVar(value="Disconnected")
         self.is_hr_connecting = False
         
@@ -119,6 +155,7 @@ class EMOMApp(ctk.CTk):
         # Cache Max HR
         details = storage.get_profile_details(choice)
         self.current_max_hr = details.get("max_hr")
+        self.current_max_prework_hr = details.get("max_prework_hr")
         
         if self.history_frame:
             self.history_frame.refresh(choice)
@@ -319,6 +356,15 @@ class EMOMApp(ctk.CTk):
                                             font=(FONT_FAMILY, 12, "bold"))
         self.btn_connect_hr.grid(row=0, column=1, padx=10, pady=8, sticky="e")
 
+        # Checkbox for Auto-Regulation (New)
+        self.chk_auto_reg = ctk.CTkCheckBox(self.hr_control_frame, text="Auto Regulate Rest", variable=self.auto_regulation_var,
+                                            font=(FONT_FAMILY, 12), text_color=TEXT_SECONDARY,
+                                            fg_color=ACCENT_PURPLE, hover_color=ACCENT_PURPLE, border_color=TEXT_SECONDARY,
+                                            state="disabled") # Initially disabled
+        self.chk_auto_reg.grid(row=0, column=2, padx=10, pady=8, sticky="e")
+        
+        ToolTip(self.chk_auto_reg, "Extends rest period until HR drops below configured Max Pre-Work HR.")
+
         # 5. Footer (History) -> Row 4
         self.footer_frame = ctk.CTkFrame(workout_tab, fg_color="transparent")
         self.footer_frame.grid(row=4, column=0, padx=20, pady=(0, 10), sticky="ew")
@@ -341,11 +387,12 @@ class EMOMApp(ctk.CTk):
         current_profile = self.profile_var.get()
         details = storage.get_profile_details(current_profile)
         current_max_hr = details.get("max_hr", "")
+        current_max_prework_hr = details.get("max_prework_hr", "")
         
         # Create Dialog
         dialog = ctk.CTkToplevel(self)
         dialog.title("Profile Settings")
-        dialog.geometry("300x200")
+        dialog.geometry("300x250")
         dialog.resizable(False, False)
         
         # Make modal-like
@@ -368,6 +415,21 @@ class EMOMApp(ctk.CTk):
         
         if current_max_hr:
             entry_max_hr.insert(0, str(current_max_hr))
+
+        ToolTip(entry_max_hr, "Used to calculate HR Zones (50-100%).")
+
+        # Max Pre-Work HR Input
+        frm_pre_hr = ctk.CTkFrame(dialog, fg_color="transparent")
+        frm_pre_hr.pack(pady=10)
+        
+        ctk.CTkLabel(frm_pre_hr, text="Max Pre-Work HR:", font=(FONT_FAMILY, 12)).pack(side="left", padx=5)
+        entry_max_pre_hr = ctk.CTkEntry(frm_pre_hr, width=60, justify="center")
+        entry_max_pre_hr.pack(side="left", padx=5)
+        
+        if current_max_prework_hr:
+            entry_max_pre_hr.insert(0, str(current_max_prework_hr))
+            
+        ToolTip(entry_max_pre_hr, "Auto-Regulation: Wait in REST if HR is above this value.")
             
         def save():
             try:
@@ -377,8 +439,15 @@ class EMOMApp(ctk.CTk):
                 else:
                     max_hr = None
                     
-                storage.update_profile(current_profile, max_hr=max_hr)
+                val_pre = entry_max_pre_hr.get().strip()
+                if val_pre:
+                    max_prework_hr = int(val_pre)
+                else:
+                    max_prework_hr = None
+                    
+                storage.update_profile(current_profile, max_hr=max_hr, max_prework_hr=max_prework_hr)
                 self.current_max_hr = max_hr # Update Cache
+                self.current_max_prework_hr = max_prework_hr
                 dialog.destroy()
                 print(f"Saved Settings for {current_profile}")
             except ValueError:
@@ -454,8 +523,14 @@ class EMOMApp(ctk.CTk):
              self.after(0, lambda: self.btn_connect_hr.configure(text="Connect HR", fg_color=ACCENT_BLUE))
              self.after(0, lambda: self.current_hr.set("--"))
              self.after(0, lambda: self.hr_zone.set(""))
+             # Disable Auto Reg
+             self.after(0, lambda: self.chk_auto_reg.configure(state="disabled"))
+             self.after(0, lambda: self.auto_regulation_var.set(False))
+
         elif status.endswith("Connected") and not status == "Disconnected":
              self.after(0, lambda: self.btn_connect_hr.configure(text="Disconnect", fg_color=ACCENT_RED))
+             # Enable Auto Reg
+             self.after(0, lambda: self.chk_auto_reg.configure(state="normal"))
 
     def on_close(self):
         if self.hr_monitor:
@@ -480,8 +555,17 @@ class EMOMApp(ctk.CTk):
         if not self.workout: return
 
         # 1. Tick Logic
-        print("Ticking...") # Debug
-        events = self.workout.tick()
+        # print("Ticking...") # Debug
+        
+        current_hr_val = None
+        try:
+            val_str = self.current_hr.get()
+            if val_str and val_str != "--":
+                 current_hr_val = int(val_str)
+        except:
+             pass
+             
+        events = self.workout.tick(current_hr=current_hr_val)
         
         # 2. Handle Events
         if events.sound_name:
@@ -622,13 +706,17 @@ class EMOMApp(ctk.CTk):
                 rest_inc = int(self.inc_time_var.get())
                 rest_interval = int(self.inc_interval_var.get())
                 rest_start = int(self.inc_start_var.get())
+                
+            max_pre_hr = self.current_max_prework_hr
+            auto_reg = self.auto_regulation_var.get()
 
         except ValueError:
             self.lbl_status.configure(text="INVALID INPUT", text_color=ACCENT_RED)
             return
 
         # Instantiate Logic
-        self.workout = Workout(total_rounds, work_duration, rest_duration, rest_inc, rest_interval, rest_start)
+        self.workout = Workout(total_rounds, work_duration, rest_duration, rest_inc, rest_interval, rest_start,
+                               max_prework_hr=max_pre_hr, auto_regulation=auto_reg)
         self.start_time = datetime.datetime.now()
         
         # Prep UI

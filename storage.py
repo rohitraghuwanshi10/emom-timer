@@ -111,7 +111,7 @@ def load_profiles():
     sorted_profiles = sorted(list(profiles_data["profiles"].keys()))
     return sorted_profiles
 
-def add_profile(profile_name, max_hr=None):
+def add_profile(profile_name, max_hr=None, max_prework_hr=None):
     _ensure_dir()
     
     # Load existing
@@ -129,7 +129,8 @@ def add_profile(profile_name, max_hr=None):
         data["profiles"][profile_name] = {
             "filename": filename,
             "created_at": datetime.datetime.now().isoformat(),
-            "max_hr": max_hr
+            "max_hr": max_hr,
+            "max_prework_hr": max_prework_hr
         }
         
         with open(PROFILES_FILE, 'w') as f:
@@ -137,7 +138,7 @@ def add_profile(profile_name, max_hr=None):
             
     return data["profiles"][profile_name]["filename"]
 
-def update_profile(profile_name, max_hr=None):
+def update_profile(profile_name, max_hr=None, max_prework_hr=None):
     """Updates existing profile metadata."""
     if not os.path.exists(PROFILES_FILE):
         return
@@ -150,10 +151,12 @@ def update_profile(profile_name, max_hr=None):
             # Update fields if provided
             if max_hr is not None:
                 data["profiles"][profile_name]["max_hr"] = max_hr
+            if max_prework_hr is not None:
+                data["profiles"][profile_name]["max_prework_hr"] = max_prework_hr
                 
             with open(PROFILES_FILE, 'w') as f:
                 json.dump(data, f, indent=4)
-                print(f"Updated profile {profile_name}: max_hr={max_hr}")
+                print(f"Updated profile {profile_name}: max_hr={max_hr}, max_prework_hr={max_prework_hr}")
                 
     except Exception as e:
         print(f"Error updating profile: {e}")
