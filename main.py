@@ -750,11 +750,11 @@ class EMOMApp(ctk.CTk):
             if self.workout:
                 duration = self.workout.work_duration
                 rest = self.workout.rest_duration
+                total_time = self.workout.total_actual_time
             else:
                 duration = int(self.work_time_var.get())
                 rest = int(self.rest_time_var.get() or 0)
-                
-            total_time = completed_rounds * (duration + rest)
+                total_time = completed_rounds * (duration + rest)
             
             if self.start_time:
                 start_str = self.start_time.replace(microsecond=0).isoformat()

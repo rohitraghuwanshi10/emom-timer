@@ -39,6 +39,10 @@ class Workout:
         self.state = WorkoutState.IDLE
         self.previous_state = None # To handle pause resume
         
+        # Track actual time spent
+        self.actual_work_time_sec = 0
+        self.actual_rest_time_sec = 0
+        
     def start(self):
         self.state = WorkoutState.PREP
         self.current_round = 0
@@ -65,8 +69,25 @@ class Workout:
             
         if self.time_left > 1:
             self.time_left -= 1
+            
+            # Track actual time
+            if self.state == WorkoutState.WORK:
+                self.actual_work_time_sec += 1
+            elif self.state == WorkoutState.REST:
+                self.actual_rest_time_sec += 1
+                
         else:
             # Time is up, transition needed
+            # NOTE: The last second is also part of the phase, track it before transition?
+            # time_left goes 2 -> 1 (tick happens). 
+            # Next tick: time_left is 1. We enter else block.
+            # We should probably count this last second too.
+            
+            if self.state == WorkoutState.WORK:
+                self.actual_work_time_sec += 1
+            elif self.state == WorkoutState.REST:
+                self.actual_rest_time_sec += 1
+            
             self._handle_transition(event, current_hr)
             
         return event
@@ -183,3 +204,7 @@ class Workout:
         if self.state == WorkoutState.PREP:
             return "PREP"
         return f"{self.current_round} / {self.total_rounds}"
+
+    @property
+    def total_actual_time(self):
+        return self.actual_work_time_sec + self.actual_rest_time_sec
