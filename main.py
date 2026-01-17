@@ -565,7 +565,8 @@ class EMOMApp(ctk.CTk):
         except:
              pass
              
-        events = self.workout.tick(current_hr=current_hr_val)
+        current_zone_val = self.hr_zone.get()
+        events = self.workout.tick(current_hr=current_hr_val, current_zone=current_zone_val)
         
         # 2. Handle Events
         if events.sound_name:
@@ -770,6 +771,20 @@ class EMOMApp(ctk.CTk):
             current_profile = self.profile_var.get()
 
             # JSON Save First to get filename
+            
+            # HR Stats
+            hr_details = []
+            max_hr = 0
+            avg_hr = 0
+            
+            if self.workout and hasattr(self.workout, 'hr_details'):
+                hr_details = self.workout.hr_details
+                if hr_details:
+                    bpms = [x['bpm'] for x in hr_details]
+                    max_hr = max(bpms)
+                    if len(bpms) > 0:
+                        avg_hr = int(sum(bpms) / len(bpms))
+
             json_data = {
                 "start_time": start_str,
                 "end_time": end_time.isoformat(),
@@ -777,7 +792,10 @@ class EMOMApp(ctk.CTk):
                 "work_time_sec": duration,
                 "rest_time_sec": rest,
                 "total_time_sec": total_time,
-                "workout_notes": notes
+                "workout_notes": notes,
+                "hr_details": hr_details,
+                "max_hr": max_hr,
+                "avg_hr": avg_hr
             }
             details_filename = storage.save_workout_json(json_data, current_profile)
 

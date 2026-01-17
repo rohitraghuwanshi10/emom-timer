@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum, auto
 import time
+import datetime
 
 class WorkoutState(Enum):
     IDLE = auto()
@@ -45,6 +46,9 @@ class Workout:
         self.actual_rest_time_sec = 0
         self._pause_start_time = None
         
+        # HR Data
+        self.hr_details = []
+        
     def start(self):
         self.state = WorkoutState.PREP
         self.current_round = 0
@@ -68,12 +72,20 @@ class Workout:
         self.current_round = 0
         self.time_left = 0
         
-    def tick(self, current_hr: int = None) -> WorkoutEvent:
+    def tick(self, current_hr: int = None, current_zone: str = None) -> WorkoutEvent:
         event = WorkoutEvent()
         
         if self.state in [WorkoutState.IDLE, WorkoutState.PAUSED, WorkoutState.FINISHED]:
             return event
             
+        # Capture HR if active
+        if current_hr is not None:
+            self.hr_details.append({
+                "capture_time": datetime.datetime.now().replace(microsecond=0).isoformat(),
+                "bpm": current_hr,
+                "zone": current_zone or ""
+            })
+
         if self.time_left > 1:
             self.time_left -= 1
             
