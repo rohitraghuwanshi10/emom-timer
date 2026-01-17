@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum, auto
+import time
 
 class WorkoutState(Enum):
     IDLE = auto()
@@ -42,6 +43,7 @@ class Workout:
         # Track actual time spent
         self.actual_work_time_sec = 0
         self.actual_rest_time_sec = 0
+        self._pause_start_time = None
         
     def start(self):
         self.state = WorkoutState.PREP
@@ -52,9 +54,14 @@ class Workout:
         if self.state != WorkoutState.PAUSED:
             self.previous_state = self.state
             self.state = WorkoutState.PAUSED
+            self._pause_start_time = time.time()
         else:
             self.state = self.previous_state
             self.previous_state = None
+            if self._pause_start_time:
+                paused_duration = time.time() - self._pause_start_time
+                self.actual_rest_time_sec += paused_duration
+                self._pause_start_time = None
             
     def reset(self):
         self.state = WorkoutState.IDLE

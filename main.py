@@ -298,7 +298,7 @@ class EMOMApp(ctk.CTk):
         self.display_frame.grid_columnconfigure(1, weight=1)
         
         # Row 0: Header (Rounds | Status)
-        self.lbl_current_round = ctk.CTkLabel(self.display_frame, text="ROUND 0 / 0", font=(FONT_FAMILY, 24, "bold"), text_color=TEXT_SECONDARY)
+        self.lbl_current_round = ctk.CTkLabel(self.display_frame, text="ROUND 0 / 0", font=(FONT_FAMILY, 40, "bold"), text_color=TEXT_COLOR)
         self.lbl_current_round.grid(row=0, column=0, sticky="w", padx=20, pady=(15, 0))
 
         self.lbl_status = ctk.CTkLabel(self.display_frame, text="READY", font=(FONT_FAMILY, 24, "bold"), text_color=ACCENT_BLUE)
@@ -747,10 +747,11 @@ class EMOMApp(ctk.CTk):
             end_time = datetime.datetime.now().replace(microsecond=0)
             
             # Use attributes from self.workout if available, else from input (fallback)
+            # Use attributes from self.workout if available, else from input (fallback)
             if self.workout:
-                duration = self.workout.work_duration
-                rest = self.workout.rest_duration
-                total_time = self.workout.total_actual_time
+                duration = int(self.workout.actual_work_time_sec)
+                rest = int(self.workout.actual_rest_time_sec)
+                total_time = duration + rest
             else:
                 duration = int(self.work_time_var.get())
                 rest = int(self.rest_time_var.get() or 0)
