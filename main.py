@@ -767,6 +767,21 @@ class EMOMApp(ctk.CTk):
             # Clear notes after saving
             self.entry_notes.delete(0, 'end')
 
+            current_profile = self.profile_var.get()
+
+            # JSON Save First to get filename
+            json_data = {
+                "start_time": start_str,
+                "end_time": end_time.isoformat(),
+                "total_rounds_completed": completed_rounds,
+                "work_time_sec": duration,
+                "rest_time_sec": rest,
+                "total_time_sec": total_time,
+                "workout_notes": notes
+            }
+            details_filename = storage.save_workout_json(json_data, current_profile)
+
+            # CSV Save
             row = [
                 start_str,
                 end_time.isoformat(),
@@ -774,11 +789,12 @@ class EMOMApp(ctk.CTk):
                 duration,
                 rest,
                 total_time,
-                notes
+                notes,
+                details_filename
             ]
             
-            current_profile = self.profile_var.get()
             storage.save_workout(row, current_profile)
+            
             print(f"History saved for {current_profile}")
             
             # Refresh history tab logic

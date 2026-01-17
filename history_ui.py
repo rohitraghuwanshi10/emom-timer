@@ -70,14 +70,21 @@ class HistoryFrame(ctk.CTkFrame):
                  headers.append(f"Column {len(headers)+1}")
 
         # Header Title Mapping (Short & Clean)
+        # Header Title Mapping (Short & Clean)
         header_map = {
             "start_time": "Date",
             "end_time": "End",
             "total_rounds_completed": "Rounds",
+            "rounds": "Rounds",
             "work_time_sec": "Work (s)",
+            "work_duration": "Work (s)",
             "rest_time_sec": "Rest (s)",
+            "rest_duration": "Rest (s)",
             "total_time_sec": "Total Time",
-            "workout_notes": "Notes"
+            "total_time": "Total Time",
+            "workout_notes": "Notes",
+            "notes": "Notes",
+            "workout_details_file": "Details File"
         }
 
         # Configure columns for better spacing
