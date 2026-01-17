@@ -359,6 +359,19 @@ def save_workout_json(data, profile_name="Default"):
         print(f"Error saving JSON workout: {e}")
         return ""
 
+def load_workout_details_json(filename):
+    if not filename: return {}
+    filepath = os.path.join(DOCS_DIR, filename)
+    if not os.path.exists(filepath):
+        return {}
+    
+    try:
+        with open(filepath, 'r') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"Error loading details {filename}: {e}")
+        return {}
+
 def load_history(profile_name="Default"):
     filename = get_filename(profile_name)
     history = []

@@ -8,8 +8,10 @@ import time
 import storage
 import subprocess
 from history_ui import HistoryFrame
+from details_ui import DetailsFrame
 from heart_rate import HeartRateMonitor
 from workout import Workout, WorkoutState
+import json
 
 # --- Modern "Liquid" / iOS Dark Mode Theme ---
 # Backgrounds
@@ -211,11 +213,12 @@ class EMOMApp(ctk.CTk):
         # Tab View
         self.tabview = ctk.CTkTabview(self, fg_color="transparent", corner_radius=15, width=460)
         self.tabview.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
-        self.tabview.add("Workout")
-        self.tabview.add("History")
+        self.tab_workout = self.tabview.add("Workout")
+        self.tab_history = self.tabview.add("History")
+        self.tab_details = self.tabview.add("Workout Details")
         
         # --- WORKOUT TAB ---
-        workout_tab = self.tabview.tab("Workout")
+        workout_tab = self.tab_workout
         workout_tab.grid_columnconfigure(0, weight=1)
         workout_tab.grid_rowconfigure(0, weight=0)
         workout_tab.grid_rowconfigure(1, weight=1) # Timer takes available space
@@ -376,12 +379,21 @@ class EMOMApp(ctk.CTk):
         self.chk_history.grid(row=0, column=0, sticky="w")
         
         # --- HISTORY TAB ---
-        history_tab = self.tabview.tab("History")
-        history_tab.grid_columnconfigure(0, weight=1)
-        history_tab.grid_rowconfigure(0, weight=1)
+        self.history_frame = HistoryFrame(self.tab_history, on_select_callback=self.show_details)
+        self.history_frame.pack(fill="both", expand=True)
         
-        self.history_frame = HistoryFrame(history_tab) # Embed new frame
-        self.history_frame.grid(row=0, column=0, sticky="nsew")
+        # --- DETAILS TAB ---
+        self.details_frame = DetailsFrame(self.tab_details)
+        self.details_frame.pack(fill="both", expand=True)
+
+        # Initial Load
+        self._load_config_and_history()
+
+    def _load_config_and_history(self):
+        """Loads initial configuration and refreshes history."""
+        self.load_profiles()
+        if self.history_frame:
+            self.history_frame.refresh(self.profile_var.get())
 
     def open_profile_settings(self):
         current_profile = self.profile_var.get()
@@ -531,7 +543,34 @@ class EMOMApp(ctk.CTk):
              self.after(0, lambda: self.btn_connect_hr.configure(text="Disconnect", fg_color=ACCENT_RED))
              # Enable Auto Reg
              self.after(0, lambda: self.chk_auto_reg.configure(state="normal"))
+    
+    def show_details(self, filename):
+        """Callback from history to show details tab."""
+        if not filename: return
+        
+        # Load Data
+        data = storage.load_workout_details_json(filename)
+        if not data:
+            print("No details found for file:", filename)
+            return
 
+        # Get max HR from current profile for zones (or fallback)
+        profile_name = self.profile_var.get()
+        
+        max_hr = 0
+        try:
+             # Fast read
+             with open(storage.PROFILES_FILE, 'r') as f:
+                 pdata = json.load(f)
+                 max_hr = pdata["profiles"].get(profile_name, {}).get("max_hr", 190)
+        except:
+             max_hr = 190
+
+        self.details_frame.update_view(data, max_hr_profile=max_hr)
+        
+        # Switch Tab
+        self.tabview.set("Workout Details")
+    
     def on_close(self):
         if self.hr_monitor:
             self.hr_monitor.stop()

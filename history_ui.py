@@ -13,9 +13,11 @@ TEXT_COLOR = "#FFFFFF"
 ACCENT_COLORS = ["#5E81AC", "#88C0D0", "#A3BE8C", "#EBCB8B", "#D08770", "#B48EAD"] # Nord Palette (Soft Blue, Cyan, Green, Yellow, Orange, Purple)
 
 class HistoryFrame(ctk.CTkFrame):
-    def __init__(self, master, **kwargs):
+    def __init__(self, master, on_select_callback=None, **kwargs):
         super().__init__(master, **kwargs)
         self.configure(fg_color=BG_COLOR)
+        
+        self.on_select_callback = on_select_callback
         
         # Configure grid weights
         self.grid_rowconfigure(0, weight=1)
@@ -96,15 +98,35 @@ class HistoryFrame(ctk.CTkFrame):
             lbl = ctk.CTkLabel(self.table_frame, text=title, font=("Arial", 13, "bold"), text_color="#8E8E93")
             lbl.grid(row=0, column=i, padx=15, pady=10, sticky="ew")
 
+        # Find filename index
+        file_col_idx = -1
+        if "workout_details_file" in headers:
+             file_col_idx = headers.index("workout_details_file")
+        elif "Details File" in headers:
+             file_col_idx = headers.index("Details File")
+
         # Data
         for r_idx, row in enumerate(data[1:], start=1):
             # Alternate row colors for readablity (simulated with Frame if needed, but text color is enough for now)
             row_color = TEXT_COLOR
             
+            # Extract filename for this row
+            details_file = ""
+            if file_col_idx != -1 and file_col_idx < len(row):
+                details_file = row[file_col_idx]
+            
             for c_idx, val in enumerate(row):
                 display_text = val
                 
                 # Format Dates (Index 0 & 1)
+                # Note: Assuming standardization, but using index logic for safety or name checking?
+                # Using hardcoded index fallback from original code for stability with old headers
+                # Ideally should map by name.
+                
+                header_name = headers[c_idx]
+                if header_name in ["start_time", "Start Time"] or header_name in ["end_time", "End Time"]:
+                     pass # handled below block in original code logic was by index 0/1
+                
                 if c_idx == 0 or c_idx == 1:
                     try:
                         dt = datetime.datetime.fromisoformat(val)
@@ -115,12 +137,17 @@ class HistoryFrame(ctk.CTkFrame):
                     except ValueError:
                         pass
                 
-                # Format Total Time (Index 5)
-                elif c_idx == 5:
+                # Format Total Time (Index 5 usually)
+                elif header_name in ["total_time_sec", "Total Time", "total_time"]:
                     display_text = self._format_seconds(val)
                 
                 lbl = ctk.CTkLabel(self.table_frame, text=display_text, font=("Arial", 12), text_color=row_color)
                 lbl.grid(row=r_idx, column=c_idx, padx=15, pady=5, sticky="ew")
+                
+                # Bind Click
+                if details_file and self.on_select_callback:
+                     lbl.bind("<Double-Button-1>", lambda e, f=details_file: self.on_select_callback(f))
+                     lbl.configure(cursor="pointinghand")
         
         # Load Graph
         self.load_graph(data[1:])
