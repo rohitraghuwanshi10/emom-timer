@@ -28,8 +28,12 @@ A modern, python-based EMOM (Every Minute on the Minute) timer application built
     - **Rest Start**: Plays a relaxing "Hero" chime to signal recovery time.
 - **Self-Contained**: Audio assets are bundled with the app (`sounds/` directory), ensuring portability across macOS systems.
 
-### � User Profiles
+### 👤 User Profiles
 - **Multi-User Support**: Create separate profiles for different users (e.g., "Rohit", "Alice").
+- **Personal Stats**: Store essential metrics for metabolic calculations:
+    - **Sex**: Used to select the appropriate metabolic formula.
+    - **Birth Date**: Used to calculate Age for calorie burn estimation.
+    - **Weight**: Supports both KG and LBS (auto-converted) for intensity calculations.
 - **Max Heart Rate**: Set your Max HR in profile settings to unlock zone tracking.
 - **Isolated History**: History is saved to individual CSV files in your Documents folder.
 - **Global Selector**: Always-visible profile switcher for quick access.
