@@ -43,12 +43,6 @@ def get_filename(profile_name="Default"):
 def load_profiles():
     _ensure_dir()
     
-    # Run Migration for new column (Before loading/returning)
-    # 1. Add Details Column if missing
-    migrate_csv_add_details_column()
-    # 2. Standardize Headers (Rename old to new)
-    migrate_csv_headers()
-    
     # Check for profiles.json
     if os.path.exists(PROFILES_FILE):
         try:
@@ -119,86 +113,7 @@ def load_profiles():
     
     return sorted_profiles
 
-def migrate_csv_add_details_column():
-    """Ensures all CSVs have the 'Details File' column."""
-    pattern = os.path.join(DOCS_DIR, "*_workout_history.csv")
-    files = glob.glob(pattern)
-    
-    for filename in files:
-        try:
-            rows = []
-            with open(filename, 'r') as f:
-                reader = csv.reader(f)
-                rows = list(reader)
-            
-            if not rows: continue
-            
-            headers = rows[0]
-            # Check for header. We use 'Details File' as pretty name
-            if "Details File" not in headers and "workout_details_file" not in headers:
-                # Add Header
-                headers.append("workout_details_file")
-                
-                # Add empty column to rows that need it
-                # Note: Some rows might already have it if app ran before migration
-                target_len = len(headers)
-                for i in range(1, len(rows)):
-                    if len(rows[i]) < target_len:
-                        rows[i].append("")
-                
-                # Write back
-                with open(filename, 'w', newline='') as f:
-                    writer = csv.writer(f)
-                    writer.writerows(rows)
-                print(f"Migrated CSV structure for {os.path.basename(filename)}")
-        except Exception as e:
-            print(f"Error migrating {filename}: {e}")
 
-def migrate_csv_headers():
-    """Renames old English headers to snake_case."""
-    pattern = os.path.join(DOCS_DIR, "*_workout_history.csv")
-    files = glob.glob(pattern)
-    
-    map_to_new = {
-        "Start Time": "start_time",
-        "End Time": "end_time",
-        "Rounds": "rounds",
-        "Work Duration": "work_duration",
-        "Rest Duration": "rest_duration",
-        "Total Time": "total_time",
-        "Notes": "notes",
-        "Details File": "workout_details_file" # Handle potential old name if exists
-    }
-    
-    for filename in files:
-        try:
-            rows = []
-            with open(filename, 'r') as f:
-                reader = csv.reader(f)
-                rows = list(reader)
-            
-            if not rows: continue
-            
-            headers = rows[0]
-            changed = False
-            for i, h in enumerate(headers):
-                if h in map_to_new:
-                    headers[i] = map_to_new[h]
-                    changed = True
-            
-            # If "Details File" was added by previous migration, it might be needing rename or not.
-            # Just to be safe, previous step ensured 'workout_details_file' but if I used 'Details File' in verify...
-            # The previous step used 'workout_details_file' in code, so headers should be fine if new.
-            # But if old file had 'Start Time', we rename it.
-            
-            if changed:
-                with open(filename, 'w', newline='') as f:
-                    writer = csv.writer(f)
-                    writer.writerows(rows)
-                print(f"Standardized headers for {os.path.basename(filename)}")
-                
-        except Exception as e:
-            print(f"Error standardizing headers for {filename}: {e}")
 
 def add_profile(profile_name, max_hr=None, max_prework_hr=None, sex=None, birth_date=None, weight_kg=None, weight_unit_pref="kg"):
     _ensure_dir()
