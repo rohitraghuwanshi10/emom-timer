@@ -13,6 +13,7 @@ ACCENT_GREEN = "#30D158"
 ACCENT_ORANGE = "#FF9F0A"
 ACCENT_RED = "#FF453A"
 ACCENT_YELLOW = "#FFD60A"
+ACCENT_PURPLE = "#BF5AF2"
 
 class DetailsFrame(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
@@ -81,6 +82,7 @@ class DetailsFrame(ctk.CTkFrame):
             ("Rest Time", fmt_sec(data.get("rest_time_sec", 0)), ACCENT_ORANGE),
             ("Peak HR", f"{data.get('max_hr', 0)} BPM", ACCENT_RED),
             ("Avg HR", f"{data.get('avg_hr', 0)} BPM", ACCENT_BLUE),
+            ("Calories", f"{data.get('calories_burnt_kcal', 0)} kcal", ACCENT_PURPLE),
         ]
         
         # Row 1
