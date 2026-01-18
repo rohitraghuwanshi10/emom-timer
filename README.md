@@ -47,21 +47,30 @@ A modern, python-based EMOM (Every Minute on the Minute) timer application built
 - Add custom **Notes** to any workout before starting or saving.
 - Notes are saved alongside performance data for future reference.
 
+### 🔋 Smart Power Management
+- **Sleep Prevention**: Keeps your laptop awake (both system and display) during an active workout, so you never lose sight of the timer.
+- **Auto-Release**: Automatically restores normal power settings when the workout finishes or pauses.
+
 ### ❤️ Heart Rate Intelligence
 - **Bluetooth Integration**: Connect compatible BLE heart rate monitors (e.g., Polar H10).
 - **Zone Training**: Real-time display of your Training Zone (1-5) based on your Max HR.
     - Color-coded feedback (Blue → Red) for instant intensity awareness.
 - **Smart Display**: Large, easy-to-read BPM and Zone indicators integrated into the main monitor.
 - **Status Indicators**: Visual feedback for connection states (Scanning, Connecting, Connected).
-- **Auto-Regulation (New)**: 
+- **Auto-Regulation**: 
     - **Smart Rest**: Extends your rest period automatically if your heart rate is too high to start the next round safely.
     - **Configurable Threshold**: Set a custom "Max Pre-Work HR" in your profile.
     - **Toggle**: Enable/Disable this feature with a simple checkbox (only active when HR monitor is connected).
+- **🔥 Calorie Tracking**: 
+    - **Real-Time Calculation**: Estimates calories burned based on your Age, Weight, Sex, and Heart Rate Intensity.
+    - **Personalized**: Configurable profile settings ensure accurate metabolic calculations.
+    - **Detailed Insight**: View total calories burned in the workout details summary.
 
 ### 🖥️ Modern Experience
 - **Monitor Card Layout**: A concise, dashboard-style view grouping Timer, Rounds, and Heart Rate.
 - **Resizable Window**: Adjust the app window to fit your screen setup.
 - **Global Header**: Easy access to profiles and settings from anywhere in the app.
+- **Detailed History**: Double-click any workout in history to view a detailed breakdown, including graphs of heart rate intensity over time.
 
 ## Getting Started
 
@@ -82,12 +91,14 @@ python main.py
 The application is modularized for better maintainability:
 - `main.py`: Core application UI and events.
 - `workout.py`: Pure business logic handling states, transitions, and timing.
-- `history_ui.py`: Manages the History Tab and Data Visualization.
+- `history_ui.py` & `details_ui.py`: Manages the History Tab and Detailed Visualization.
 - `heart_rate.py`: Handles Bluetooth LE communication and heart rate data parsing.
-- `storage.py`: Handles CSV file operations and data persistence.
+- `storage.py`: Handles CSV/JSON file operations and data persistence.
+- `power_management.py`: Cross-platform power saving API wrapper (Windows/macOS).
 - `sounds/`: Directory containing bundled audio assets (`Glass.wav`, `Hero.wav`).
 
 ## Data Storage
 Workout data is stored in your user Documents folder: `~/Documents/EMOM Timer/`.
-- **Files**: `[profile_name]_workout_history.csv`.
-- **Columns**: `start_time`, `end_time`, `total_rounds_completed`, `work_time_sec`, `rest_time_sec`, `total_time_sec`, `workout_notes`.
+- **Profiles**: `profiles.json` stores user metadata (Max HR, Weight, Age, etc).
+- **History CSV**: `[profile_name]_workout_history.csv` (General Summary).
+- **Details JSON**: `[profile]_[date]_WO[n].json` (Second-by-second data, HR logs, Calories).
