@@ -8,6 +8,8 @@ A modern, python-based EMOM (Every Minute on the Minute) timer application built
   <img src="screenshots/EMOM_Main.png" alt="Main Interface" width="45%">
   &nbsp; &nbsp;
   <img src="screenshots/EMOM_History.png" alt="History View" width="45%">
+   &nbsp; &nbsp;
+  <img src="screenshots/WorkoutDetails.png" alt="Detail View" width="45%">
 </p>
 
 ## Features
