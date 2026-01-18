@@ -200,7 +200,7 @@ def migrate_csv_headers():
         except Exception as e:
             print(f"Error standardizing headers for {filename}: {e}")
 
-def add_profile(profile_name, max_hr=None, max_prework_hr=None):
+def add_profile(profile_name, max_hr=None, max_prework_hr=None, sex=None, birth_date=None, weight_kg=None, weight_unit_pref="kg"):
     _ensure_dir()
     
     # Load existing
@@ -219,7 +219,11 @@ def add_profile(profile_name, max_hr=None, max_prework_hr=None):
             "filename": filename,
             "created_at": datetime.datetime.now().isoformat(),
             "max_hr": max_hr,
-            "max_prework_hr": max_prework_hr
+            "max_prework_hr": max_prework_hr,
+            "sex": sex,
+            "birth_date": birth_date,
+            "weight_kg": weight_kg,
+            "weight_unit_pref": weight_unit_pref
         }
         
         with open(PROFILES_FILE, 'w') as f:
@@ -227,7 +231,7 @@ def add_profile(profile_name, max_hr=None, max_prework_hr=None):
             
     return data["profiles"][profile_name]["filename"]
 
-def update_profile(profile_name, max_hr=None, max_prework_hr=None):
+def update_profile(profile_name, max_hr=None, max_prework_hr=None, sex=None, birth_date=None, weight_kg=None, weight_unit_pref=None):
     """Updates existing profile metadata."""
     if not os.path.exists(PROFILES_FILE):
         return
@@ -242,6 +246,14 @@ def update_profile(profile_name, max_hr=None, max_prework_hr=None):
                 data["profiles"][profile_name]["max_hr"] = max_hr
             if max_prework_hr is not None:
                 data["profiles"][profile_name]["max_prework_hr"] = max_prework_hr
+            if sex is not None:
+                data["profiles"][profile_name]["sex"] = sex
+            if birth_date is not None:
+                data["profiles"][profile_name]["birth_date"] = birth_date
+            if weight_kg is not None:
+                data["profiles"][profile_name]["weight_kg"] = weight_kg
+            if weight_unit_pref is not None:
+                data["profiles"][profile_name]["weight_unit_pref"] = weight_unit_pref
                 
             with open(PROFILES_FILE, 'w') as f:
                 json.dump(data, f, indent=4)

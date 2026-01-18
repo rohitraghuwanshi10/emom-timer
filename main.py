@@ -11,6 +11,7 @@ from history_ui import HistoryFrame
 from details_ui import DetailsFrame
 from heart_rate import HeartRateMonitor
 from workout import Workout, WorkoutState
+from power_management import PowerManager
 import json
 
 # --- Modern "Liquid" / iOS Dark Mode Theme ---
@@ -127,6 +128,9 @@ class EMOMApp(ctk.CTk):
         self.current_max_prework_hr = None
         self.hr_status = ctk.StringVar(value="Disconnected")
         self.is_hr_connecting = False
+        
+        # --- Power Management ---
+        self.power_manager = PowerManager()
         
         # --- UI Layout ---
         self._create_widgets()
@@ -400,11 +404,15 @@ class EMOMApp(ctk.CTk):
         details = storage.get_profile_details(current_profile)
         current_max_hr = details.get("max_hr", "")
         current_max_prework_hr = details.get("max_prework_hr", "")
+        current_sex = details.get("sex", "Male")
+        current_birth = details.get("birth_date", "")
+        current_weight_kg = details.get("weight_kg", "")
+        current_unit = details.get("weight_unit_pref", "kg")
         
         # Create Dialog
         dialog = ctk.CTkToplevel(self)
         dialog.title("Profile Settings")
-        dialog.geometry("300x250")
+        dialog.geometry("350x450")
         dialog.resizable(False, False)
         
         # Make modal-like
@@ -417,54 +425,104 @@ class EMOMApp(ctk.CTk):
         lbl_title = ctk.CTkLabel(dialog, text=f"Edit {current_profile}", font=(FONT_FAMILY, 16, "bold"))
         lbl_title.pack(pady=(20, 10))
         
+        # Helper to create rows
+        def create_row(parent):
+            f = ctk.CTkFrame(parent, fg_color="transparent")
+            f.pack(pady=5)
+            return f
+
         # Max HR Input
-        frm_hr = ctk.CTkFrame(dialog, fg_color="transparent")
-        frm_hr.pack(pady=10)
-        
+        frm_hr = create_row(dialog)
         ctk.CTkLabel(frm_hr, text="Max Heart Rate:", font=(FONT_FAMILY, 12)).pack(side="left", padx=5)
         entry_max_hr = ctk.CTkEntry(frm_hr, width=60, justify="center")
         entry_max_hr.pack(side="left", padx=5)
-        
-        if current_max_hr:
-            entry_max_hr.insert(0, str(current_max_hr))
-
+        if current_max_hr: entry_max_hr.insert(0, str(current_max_hr))
         ToolTip(entry_max_hr, "Used to calculate HR Zones (50-100%).")
 
         # Max Pre-Work HR Input
-        frm_pre_hr = ctk.CTkFrame(dialog, fg_color="transparent")
-        frm_pre_hr.pack(pady=10)
-        
+        frm_pre_hr = create_row(dialog)
         ctk.CTkLabel(frm_pre_hr, text="Max Pre-Work HR:", font=(FONT_FAMILY, 12)).pack(side="left", padx=5)
         entry_max_pre_hr = ctk.CTkEntry(frm_pre_hr, width=60, justify="center")
         entry_max_pre_hr.pack(side="left", padx=5)
-        
-        if current_max_prework_hr:
-            entry_max_pre_hr.insert(0, str(current_max_prework_hr))
-            
+        if current_max_prework_hr: entry_max_pre_hr.insert(0, str(current_max_prework_hr))
         ToolTip(entry_max_pre_hr, "Auto-Regulation: Wait in REST if HR is above this value.")
-            
+        
+        # Sex Input
+        frm_sex = create_row(dialog)
+        ctk.CTkLabel(frm_sex, text="Sex:", font=(FONT_FAMILY, 12)).pack(side="left", padx=5)
+        sex_var = ctk.StringVar(value=current_sex)
+        opt_sex = ctk.CTkOptionMenu(frm_sex, variable=sex_var, values=["Male", "Female"], width=100)
+        opt_sex.pack(side="left", padx=5)
+        
+        # Birth Date Input
+        frm_birth = create_row(dialog)
+        ctk.CTkLabel(frm_birth, text="Birth Date:", font=(FONT_FAMILY, 12)).pack(side="left", padx=5)
+        entry_birth = ctk.CTkEntry(frm_birth, width=100, justify="center", placeholder_text="YYYY-MM-DD")
+        entry_birth.pack(side="left", padx=5)
+        if current_birth: entry_birth.insert(0, str(current_birth))
+        
+        # Weight Input
+        frm_weight = create_row(dialog)
+        ctk.CTkLabel(frm_weight, text="Weight:", font=(FONT_FAMILY, 12)).pack(side="left", padx=5)
+        
+        # Convert KG to display unit if needed
+        display_weight = ""
+        if current_weight_kg:
+            try:
+                kg_val = float(current_weight_kg)
+                if current_unit == "lbs":
+                    display_weight = f"{kg_val * 2.20462:.1f}"
+                else:
+                    display_weight = f"{kg_val:.1f}"
+            except:
+                pass
+
+        entry_weight = ctk.CTkEntry(frm_weight, width=60, justify="center")
+        entry_weight.pack(side="left", padx=5)
+        if display_weight: entry_weight.insert(0, display_weight)
+        
+        unit_var = ctk.StringVar(value=current_unit)
+        seg_unit = ctk.CTkSegmentedButton(frm_weight, values=["kg", "lbs"], variable=unit_var, width=60)
+        seg_unit.pack(side="left", padx=5)
+
         def save():
             try:
+                # 1. HR
                 val = entry_max_hr.get().strip()
-                if val:
-                    max_hr = int(val)
-                else:
-                    max_hr = None
-                    
+                max_hr = int(val) if val else None
+                
                 val_pre = entry_max_pre_hr.get().strip()
-                if val_pre:
-                    max_prework_hr = int(val_pre)
-                else:
-                    max_prework_hr = None
-                    
-                storage.update_profile(current_profile, max_hr=max_hr, max_prework_hr=max_prework_hr)
+                max_prework_hr = int(val_pre) if val_pre else None
+                
+                # 2. Sex/Birth
+                sex = sex_var.get()
+                birth_date = entry_birth.get().strip()
+                
+                # 3. Weight
+                weight_input = entry_weight.get().strip()
+                weight_kg = None
+                unit_pref = unit_var.get()
+                
+                if weight_input:
+                    try:
+                        w_val = float(weight_input)
+                        if unit_pref == "lbs":
+                            weight_kg = round(w_val / 2.20462, 2)
+                        else:
+                            weight_kg = round(w_val, 2)
+                    except ValueError:
+                        print("Invalid weight input")
+                        # could handle error
+                
+                storage.update_profile(current_profile, max_hr=max_hr, max_prework_hr=max_prework_hr,
+                                       sex=sex, birth_date=birth_date, weight_kg=weight_kg, weight_unit_pref=unit_pref)
+                                       
                 self.current_max_hr = max_hr # Update Cache
                 self.current_max_prework_hr = max_prework_hr
                 dialog.destroy()
                 print(f"Saved Settings for {current_profile}")
             except ValueError:
-                print("Invalid Max HR input")
-                # Could add error label here
+                print("Invalid input")
         
         btn_save = ctk.CTkButton(dialog, text="Save", command=save, fg_color=ACCENT_BLUE, width=100)
         btn_save.pack(pady=20)
@@ -574,6 +632,8 @@ class EMOMApp(ctk.CTk):
     def on_close(self):
         if self.hr_monitor:
             self.hr_monitor.stop()
+        if self.power_manager:
+            self.power_manager.allow_sleep()
         self.destroy()
 
     def toggle_pause(self):
@@ -688,6 +748,9 @@ class EMOMApp(ctk.CTk):
              self.entry_inc_int.configure(state="normal")
              self.entry_inc_start.configure(state="normal")
         
+        # Allow Sleep
+        self.power_manager.allow_sleep()
+        
         # Reset Logic container? Or keep it for inspection? 
         # Usually fine to keep until next start or reset.
 
@@ -721,6 +784,9 @@ class EMOMApp(ctk.CTk):
              self.entry_inc_time.configure(state="normal")
              self.entry_inc_int.configure(state="normal")
              self.entry_inc_start.configure(state="normal")
+             
+        # Allow Sleep
+        self.power_manager.allow_sleep()
         
     def start_workout(self):
         # If already running
@@ -777,6 +843,9 @@ class EMOMApp(ctk.CTk):
         
         # Initial Sound
         self.play_sound("Glass", 1)
+        
+        # Prevent Sleep
+        self.power_manager.prevent_sleep()
 
 
     def save_history(self, completed_rounds):
@@ -836,6 +905,31 @@ class EMOMApp(ctk.CTk):
                 "max_hr": max_hr,
                 "avg_hr": avg_hr
             }
+            
+            # --- Calorie Calculation ---
+            try:
+                details = storage.get_profile_details(current_profile)
+                sex = details.get("sex")
+                birth = details.get("birth_date")
+                weight = details.get("weight_kg")
+                
+                if sex and birth and weight and avg_hr > 0:
+                     age = self._calculate_age(birth)
+                     total_mins = total_time / 60
+                     
+                     if sex == "Male":
+                         # Calories per minute = [(-55.0969 + (0.6309 × avg_hr) + (0.1988 × weight_kg) + (0.2017 × age)) / 4.184]
+                         cpm = (-55.0969 + (0.6309 * avg_hr) + (0.1988 * weight) + (0.2017 * age)) / 4.184
+                     else:
+                         # Calories per minute = [(-20.4022 + (0.4472 × avg_hr) - (0.1263 × weight_kg) + (0.074 × age)) / 4.184]
+                         cpm = (-20.4022 + (0.4472 * avg_hr) - (0.1263 * weight) + (0.074 * age)) / 4.184
+                     
+                     total_cal = cpm * total_mins
+                     json_data["calories_burnt_kcal"] = round(total_cal, 2)
+                     print(f"Calories Burnt: {json_data['calories_burnt_kcal']} (Age: {age}, Weight: {weight}, Avg HR: {avg_hr})")
+            except Exception as e:
+                print(f"Error calculating calories: {e}")
+            
             details_filename = storage.save_workout_json(json_data, current_profile)
 
             # CSV Save
@@ -860,6 +954,14 @@ class EMOMApp(ctk.CTk):
             
         except Exception as e:
             print(f"Error saving history: {e}")
+
+    def _calculate_age(self, birth_date_str):
+        try:
+             birth = datetime.datetime.strptime(birth_date_str, "%Y-%m-%d")
+             today = datetime.datetime.now()
+             return today.year - birth.year - ((today.month, today.day) < (birth.month, birth.day))
+        except:
+             return 0
 
 if __name__ == "__main__":
     app = EMOMApp()
