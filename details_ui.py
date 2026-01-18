@@ -132,8 +132,9 @@ class DetailsFrame(ctk.CTkFrame):
                  dt = datetime.datetime.fromisoformat(ts_str)
                  if start_ts is None: start_ts = dt
                  
+                 
                  delta = (dt - start_ts).total_seconds()
-                 times.append(delta)
+                 times.append(delta / 60) # Convert to minutes
                  bpms.append(bpm)
         except Exception as e:
             print(f"Error parsing graph data: {e}")
@@ -168,10 +169,14 @@ class DetailsFrame(ctk.CTkFrame):
                 pass
 
         ax.plot(times, bpms, color=ACCENT_RED, linewidth=2)
-        ax.fill_between(times, bpms, 0, color=ACCENT_RED, alpha=0.1)
+        # Fill to 40 instead of 0
+        ax.fill_between(times, bpms, 40, color=ACCENT_RED, alpha=0.1)
+        
+        # Set Minimum Y
+        ax.set_ylim(bottom=40)
         
         # Format Axis
-        ax.set_xlabel("Time (s)", color=TEXT_SECONDARY, fontsize=9)
+        ax.set_xlabel("Time (min)", color=TEXT_SECONDARY, fontsize=9)
         ax.set_ylabel("Heart Rate (BPM)", color=TEXT_SECONDARY, fontsize=9)
         ax.set_title("Heart Rate Intensity", color="white", fontsize=11, pad=10)
         
@@ -181,6 +186,9 @@ class DetailsFrame(ctk.CTkFrame):
         ax.spines['left'].set_color("#333333")
         ax.spines['bottom'].set_color("#333333")
         ax.tick_params(colors=TEXT_SECONDARY)
+        
+        # Ensure labels are visible
+        fig.tight_layout()
         
         canvas = FigureCanvasTkAgg(fig, master=self.graph_container)
         canvas.draw()
