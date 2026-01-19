@@ -653,11 +653,24 @@ class EMOMApp(ctk.CTk):
         
         if self.workout.state == WorkoutState.PAUSED:
              self.btn_start.configure(text="RESUME", fg_color=ACCENT_GREEN, text_color="black")
+             # Unlock Rounds Input
+             self.entry_rounds.configure(state="normal")
+             
              if self.timer_job:
                 self.after_cancel(self.timer_job)
                 self.timer_job = None
         else:
              self.btn_start.configure(text="PAUSE", fg_color=ACCENT_ORANGE, text_color="black")
+             # Lock Rounds Input & Update Value
+             self.entry_rounds.configure(state="disabled")
+             try:
+                 new_rounds = int(self.total_rounds_var.get())
+                 if new_rounds > 0:
+                     self.workout.total_rounds = new_rounds
+                     self.lbl_current_round.configure(text=self.workout.round_display)
+             except:
+                 pass
+                 
              self.update_timer()
 
     def update_timer(self):
