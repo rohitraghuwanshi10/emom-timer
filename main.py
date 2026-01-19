@@ -666,6 +666,11 @@ class EMOMApp(ctk.CTk):
              try:
                  new_rounds = int(self.total_rounds_var.get())
                  if new_rounds > 0:
+                     # Validation: Cannot go lower than current round
+                     if new_rounds < self.workout.current_round:
+                         new_rounds = self.workout.current_round
+                         self.total_rounds_var.set(str(new_rounds))
+                         
                      self.workout.total_rounds = new_rounds
                      self.lbl_current_round.configure(text=self.workout.round_display)
              except:
