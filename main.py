@@ -137,7 +137,17 @@ class EMOMApp(ctk.CTk):
         self.load_profiles()
         
         # Clean up on exit
+        # Clean up on exit
         self.protocol("WM_DELETE_WINDOW", self.on_close)
+        
+        # Shortcuts
+        self.bind("<space>", self.on_space_pressed)
+
+    def on_space_pressed(self, event=None):
+        if self.workout is None or self.workout.state in [WorkoutState.IDLE, WorkoutState.FINISHED]:
+            self.start_workout()
+        else:
+            self.toggle_pause()
 
     def load_profiles(self):
         self.available_profiles = storage.load_profiles()

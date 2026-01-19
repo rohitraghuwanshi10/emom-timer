@@ -78,6 +78,9 @@ A modern, python-based EMOM (Every Minute on the Minute) timer application built
 - **Global Header**: Easy access to profiles and settings from anywhere in the app.
 - **Detailed History**: Double-click any workout in history to view a detailed breakdown, including graphs of heart rate intensity over time.
 
+### ⌨️ Keyboard Shortcuts
+- **Space Bar**: Start / Pause / Resume the workout instantly.
+
 ## Getting Started
 
 ### Prerequisites
