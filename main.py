@@ -112,6 +112,11 @@ class EMOMApp(ctk.CTk):
         self.profile_var = ctk.StringVar(value="Default")
         self.available_profiles = []
         
+        # Profile Settings Widgets (Dynamic)
+        self.entry_profile_name = None
+        self.entry_profile_birth = None
+        self.entry_profile_weight = None
+        
         # Logic Delegation
         self.workout = None
         self.timer_job = None
@@ -144,10 +149,44 @@ class EMOMApp(ctk.CTk):
         self.bind("<space>", self.on_space_pressed)
 
     def on_space_pressed(self, event=None):
+        if self._is_typing_active():
+            return
+
         if self.workout is None or self.workout.state in [WorkoutState.IDLE, WorkoutState.FINISHED]:
             self.start_workout()
         else:
             self.toggle_pause()
+
+    def _is_typing_active(self):
+        """Checks if focus is currently on a TEXT input (blocking shortcuts)."""
+        focused = self.focus_get()
+        if not focused: return False
+        
+        # Only block shortcut if we are in a field where 'Space' is valid text
+        text_inputs = [
+            self.entry_notes,
+            self.entry_profile_name, 
+            # self.entry_profile_birth, # Date could technically have spaces? Let's assume yes to be safe
+        ]
+        
+        # Check against text inputs
+        for widget in text_inputs:
+             if not widget or not widget.winfo_exists(): continue
+             try:
+                if hasattr(widget, "_entry") and widget._entry == focused:
+                    return True
+                if hasattr(widget, "_textbox") and widget._textbox == focused:
+                    return True
+             except:
+                pass
+                
+        # Also check dynamic profile widgets if likely text
+        if self.entry_profile_birth:
+             try:
+                 if self.entry_profile_birth._entry == focused: return True
+             except: pass
+             
+        return False
 
     def load_profiles(self):
         self.available_profiles = storage.load_profiles()
