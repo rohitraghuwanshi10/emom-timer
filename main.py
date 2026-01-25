@@ -255,7 +255,7 @@ class EMOMApp(ctk.CTk):
                                               text_color=TEXT_COLOR, font=(FONT_FAMILY, 12))
         self.profile_menu.pack(side="left", padx=(0, 5))
         
-        btn_settings = ctk.CTkButton(self.profile_ui, text="⚙️", command=self.open_profile_settings, width=24, height=24,
+        btn_settings = ctk.CTkButton(self.profile_ui, text="⚙️", command=self.open_settings, width=24, height=24,
                                         fg_color="transparent", hover_color="#3A3A3C", text_color=TEXT_SECONDARY, font=(FONT_FAMILY, 14))
         btn_settings.pack(side="left", padx=(0, 0))
 
@@ -448,7 +448,23 @@ class EMOMApp(ctk.CTk):
         if self.history_frame:
             self.history_frame.refresh(self.profile_var.get())
 
-    def open_profile_settings(self):
+    def open_settings(self):
+        # Create Dialog
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Settings")
+        dialog.geometry("400x500")
+        dialog.resizable(False, False)
+        dialog.transient(self)
+        dialog.grab_set()
+        
+        # Tab View
+        tabview = ctk.CTkTabview(dialog, width=380, height=480)
+        tabview.pack(padx=10, pady=10, fill="both", expand=True)
+        
+        tab_profile = tabview.add("Profile")
+        tab_general = tabview.add("General")
+        
+        # --- PROFILE TAB ---
         current_profile = self.profile_var.get()
         details = storage.get_profile_details(current_profile)
         current_max_hr = details.get("max_hr", "")
@@ -457,22 +473,9 @@ class EMOMApp(ctk.CTk):
         current_birth = details.get("birth_date", "")
         current_weight_kg = details.get("weight_kg", "")
         current_unit = details.get("weight_unit_pref", "kg")
-        
-        # Create Dialog
-        dialog = ctk.CTkToplevel(self)
-        dialog.title("Profile Settings")
-        dialog.geometry("350x450")
-        dialog.resizable(False, False)
-        
-        # Make modal-like
-        dialog.transient(self)
-        dialog.grab_set()
-        
-        # Center Content
-        dialog.grid_columnconfigure(0, weight=1)
-        
-        lbl_title = ctk.CTkLabel(dialog, text=f"Edit {current_profile}", font=(FONT_FAMILY, 16, "bold"))
-        lbl_title.pack(pady=(20, 10))
+
+        lbl_title = ctk.CTkLabel(tab_profile, text=f"Edit {current_profile}", font=(FONT_FAMILY, 16, "bold"))
+        lbl_title.pack(pady=(10, 10))
         
         # Helper to create rows
         def create_row(parent):
@@ -480,41 +483,38 @@ class EMOMApp(ctk.CTk):
             f.pack(pady=5)
             return f
 
-        # Max HR Input
-        frm_hr = create_row(dialog)
-        ctk.CTkLabel(frm_hr, text="Max Heart Rate:", font=(FONT_FAMILY, 12)).pack(side="left", padx=5)
+        # Max HR
+        frm_hr = create_row(tab_profile)
+        ctk.CTkLabel(frm_hr, text="Max HR:", font=(FONT_FAMILY, 12)).pack(side="left", padx=5)
         entry_max_hr = ctk.CTkEntry(frm_hr, width=60, justify="center")
         entry_max_hr.pack(side="left", padx=5)
         if current_max_hr: entry_max_hr.insert(0, str(current_max_hr))
-        ToolTip(entry_max_hr, "Used to calculate HR Zones (50-100%).")
-
-        # Max Pre-Work HR Input
-        frm_pre_hr = create_row(dialog)
-        ctk.CTkLabel(frm_pre_hr, text="Max Pre-Work HR:", font=(FONT_FAMILY, 12)).pack(side="left", padx=5)
+        
+        # Max Pre-Work HR
+        frm_pre_hr = create_row(tab_profile)
+        ctk.CTkLabel(frm_pre_hr, text="Pre-Work HR:", font=(FONT_FAMILY, 12)).pack(side="left", padx=5)
         entry_max_pre_hr = ctk.CTkEntry(frm_pre_hr, width=60, justify="center")
         entry_max_pre_hr.pack(side="left", padx=5)
         if current_max_prework_hr: entry_max_pre_hr.insert(0, str(current_max_prework_hr))
-        ToolTip(entry_max_pre_hr, "Auto-Regulation: Wait in REST if HR is above this value.")
         
-        # Sex Input
-        frm_sex = create_row(dialog)
+        # Sex
+        frm_sex = create_row(tab_profile)
         ctk.CTkLabel(frm_sex, text="Sex:", font=(FONT_FAMILY, 12)).pack(side="left", padx=5)
         sex_var = ctk.StringVar(value=current_sex)
         opt_sex = ctk.CTkOptionMenu(frm_sex, variable=sex_var, values=["Male", "Female"], width=100)
         opt_sex.pack(side="left", padx=5)
         
-        # Birth Date Input
-        frm_birth = create_row(dialog)
+        # Birth Date
+        frm_birth = create_row(tab_profile)
         ctk.CTkLabel(frm_birth, text="Birth Date:", font=(FONT_FAMILY, 12)).pack(side="left", padx=5)
         entry_birth = ctk.CTkEntry(frm_birth, width=100, justify="center", placeholder_text="YYYY-MM-DD")
         entry_birth.pack(side="left", padx=5)
         if current_birth: entry_birth.insert(0, str(current_birth))
         
-        # Weight Input
-        frm_weight = create_row(dialog)
+        # Weight
+        frm_weight = create_row(tab_profile)
         ctk.CTkLabel(frm_weight, text="Weight:", font=(FONT_FAMILY, 12)).pack(side="left", padx=5)
         
-        # Convert KG to display unit if needed
         display_weight = ""
         if current_weight_kg:
             try:
@@ -523,8 +523,7 @@ class EMOMApp(ctk.CTk):
                     display_weight = f"{kg_val * 2.20462:.1f}"
                 else:
                     display_weight = f"{kg_val:.1f}"
-            except:
-                pass
+            except: pass
 
         entry_weight = ctk.CTkEntry(frm_weight, width=60, justify="center")
         entry_weight.pack(side="left", padx=5)
@@ -534,20 +533,17 @@ class EMOMApp(ctk.CTk):
         seg_unit = ctk.CTkSegmentedButton(frm_weight, values=["kg", "lbs"], variable=unit_var, width=60)
         seg_unit.pack(side="left", padx=5)
 
-        def save():
+        def save_profile():
             try:
-                # 1. HR
                 val = entry_max_hr.get().strip()
                 max_hr = int(val) if val else None
                 
                 val_pre = entry_max_pre_hr.get().strip()
                 max_prework_hr = int(val_pre) if val_pre else None
                 
-                # 2. Sex/Birth
                 sex = sex_var.get()
                 birth_date = entry_birth.get().strip()
                 
-                # 3. Weight
                 weight_input = entry_weight.get().strip()
                 weight_kg = None
                 unit_pref = unit_var.get()
@@ -559,22 +555,55 @@ class EMOMApp(ctk.CTk):
                             weight_kg = round(w_val / 2.20462, 2)
                         else:
                             weight_kg = round(w_val, 2)
-                    except ValueError:
-                        print("Invalid weight input")
-                        # could handle error
+                    except: pass
                 
                 storage.update_profile(current_profile, max_hr=max_hr, max_prework_hr=max_prework_hr,
                                        sex=sex, birth_date=birth_date, weight_kg=weight_kg, weight_unit_pref=unit_pref)
                                        
-                self.current_max_hr = max_hr # Update Cache
+                self.current_max_hr = max_hr 
                 self.current_max_prework_hr = max_prework_hr
                 dialog.destroy()
                 print(f"Saved Settings for {current_profile}")
             except ValueError:
                 print("Invalid input")
-        
-        btn_save = ctk.CTkButton(dialog, text="Save", command=save, fg_color=ACCENT_BLUE, width=100)
+
+        btn_save = ctk.CTkButton(tab_profile, text="Save Profile", command=save_profile, fg_color=ACCENT_BLUE)
         btn_save.pack(pady=20)
+
+        # --- GENERAL TAB ---
+        lbl_general = ctk.CTkLabel(tab_general, text="General Settings", font=(FONT_FAMILY, 16, "bold"))
+        lbl_general.pack(pady=(10, 10))
+        
+        lbl_folder = ctk.CTkLabel(tab_general, text="Data Storage Folder:", font=(FONT_FAMILY, 12, "bold"))
+        lbl_folder.pack(anchor="w", padx=20, pady=(10, 0))
+        
+        current_path = storage.get_base_dir()
+        entry_path = ctk.CTkEntry(tab_general, width=300)
+        entry_path.pack(pady=5, padx=20)
+        entry_path.insert(0, current_path)
+        entry_path.configure(state="readonly")
+        
+        def change_folder():
+            new_dir = ctk.filedialog.askdirectory(initialdir=current_path, title="Select Data Folder")
+            if new_dir:
+                storage.set_base_dir(new_dir)
+                entry_path.configure(state="normal")
+                entry_path.delete(0, "end")
+                entry_path.insert(0, new_dir)
+                entry_path.configure(state="readonly")
+                
+                # Reload App State
+                self.load_profiles()
+                self._load_config_and_history()
+                
+                ctk.CTkLabel(tab_general, text="Folder updated! History refreshed.", text_color=ACCENT_GREEN).pack()
+
+        btn_change = ctk.CTkButton(tab_general, text="Change Folder...", command=change_folder, fg_color=ACCENT_ORANGE)
+        btn_change.pack(pady=10)
+        
+        lbl_info = ctk.CTkLabel(tab_general, text="Note: Existing data is NOT moved automatically.\nYou must manually move files if needed.", 
+                                text_color=TEXT_SECONDARY, font=(FONT_FAMILY, 11), wraplength=300)
+        lbl_info.pack(pady=20)
 
     def toggle_inc_options(self):
         if self.incremental_rest_var.get():

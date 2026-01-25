@@ -7,33 +7,83 @@ import datetime
 import time
 
 # Define base path (User Documents)
-DOCS_DIR = os.path.expanduser("~/Documents/EMOM Timer")
-PROFILES_FILE = os.path.join(DOCS_DIR, "profiles.json")
+# Define Config Path
+_CONFIG_FILE = os.path.expanduser("~/.emom_timer_config.json")
+_BASE_DIR = None # Lazily loaded
+
+def get_base_dir():
+    global _BASE_DIR
+    if _BASE_DIR:
+        return _BASE_DIR
+        
+    # Load from config
+    default_dir = os.path.expanduser("~/Documents/EMOM Timer")
+    try:
+        if os.path.exists(_CONFIG_FILE):
+            with open(_CONFIG_FILE, 'r') as f:
+                config = json.load(f)
+                path = config.get("base_dir")
+                if path:
+                    _BASE_DIR = path
+                    return _BASE_DIR
+    except Exception as e:
+        print(f"Error loading config: {e}")
+        
+    _BASE_DIR = default_dir
+    return _BASE_DIR
+
+def set_base_dir(new_path):
+    global _BASE_DIR
+    if not new_path: return
+    
+    _BASE_DIR = new_path
+    
+    # Save to config
+    try:
+        config = {}
+        if os.path.exists(_CONFIG_FILE):
+             with open(_CONFIG_FILE, 'r') as f:
+                 config = json.load(f)
+        
+        config["base_dir"] = new_path
+        
+        with open(_CONFIG_FILE, 'w') as f:
+            json.dump(config, f, indent=4)
+            
+        print(f"Base dir updated to: {new_path}")
+        
+    except Exception as e:
+        print(f"Error saving config: {e}")
+
+def get_profiles_file():
+    return os.path.join(get_base_dir(), "profiles.json")
 
 def _ensure_dir():
-    if not os.path.exists(DOCS_DIR):
-        os.makedirs(DOCS_DIR)
+    base = get_base_dir()
+    if not os.path.exists(base):
+        os.makedirs(base)
 
-LEGACY_FILE = os.path.join(DOCS_DIR, "workout_history.csv")
+
 
 def _generate_filename(profile_name):
     safe_name = profile_name.lower().replace(" ", "_")
-    return os.path.join(DOCS_DIR, f"{safe_name}_workout_history.csv")
+    return os.path.join(get_base_dir(), f"{safe_name}_workout_history.csv")
 
 def get_filename(profile_name="Default"):
     _ensure_dir()
     
     # Try to get from JSON
-    if os.path.exists(PROFILES_FILE):
+    profiles_file = get_profiles_file()
+    if os.path.exists(profiles_file):
         try:
-            with open(PROFILES_FILE, 'r') as f:
+            with open(profiles_file, 'r') as f:
                 data = json.load(f)
                 profiles = data.get("profiles", {})
                 if profile_name in profiles:
                     # Return absolute path assuming filename in JSON is relative or absolute
                     # Let's verify if we store relative. Plan says "default_workout_history.csv".
                     fname = profiles[profile_name]["filename"]
-                    return os.path.join(DOCS_DIR, fname)
+                    return os.path.join(get_base_dir(), fname)
         except Exception as e:
             print(f"Error reading profiles.json: {e}")
             
@@ -44,9 +94,10 @@ def load_profiles():
     _ensure_dir()
     
     # Check for profiles.json
-    if os.path.exists(PROFILES_FILE):
+    profiles_file = get_profiles_file()
+    if os.path.exists(profiles_file):
         try:
-            with open(PROFILES_FILE, 'r') as f:
+            with open(profiles_file, 'r') as f:
                 data = json.load(f)
                 return sorted(list(data.get("profiles", {}).keys()))
         except Exception as e:
@@ -57,18 +108,20 @@ def load_profiles():
     print("Migrating profiles to JSON...")
     
     # 1. Migration Check (Legacy file)
+    # 1. Migration Check (Legacy file)
+    legacy_file = os.path.join(get_base_dir(), "workout_history.csv")
     default_filename = "default_workout_history.csv"
-    default_abs_path = os.path.join(DOCS_DIR, default_filename)
+    default_abs_path = os.path.join(get_base_dir(), default_filename)
     
-    if os.path.exists(LEGACY_FILE) and not os.path.exists(default_abs_path):
+    if os.path.exists(legacy_file) and not os.path.exists(default_abs_path):
         try:
-            os.rename(LEGACY_FILE, default_abs_path)
+            os.rename(legacy_file, default_abs_path)
             print(f"Migrated legacy history to {default_abs_path}")
         except OSError as e:
             print(f"Error migrating legacy file: {e}")
 
     # 2. Scan
-    pattern = os.path.join(DOCS_DIR, "*_workout_history.csv")
+    pattern = os.path.join(get_base_dir(), "*_workout_history.csv")
     files = glob.glob(pattern)
     
     profiles_data = {
@@ -104,7 +157,7 @@ def load_profiles():
         
     # Save JSON
     try:
-        with open(PROFILES_FILE, 'w') as f:
+        with open(profiles_file, 'w') as f:
             json.dump(profiles_data, f, indent=4)
     except Exception as e:
         print(f"Error creating profiles.json: {e}")
@@ -120,9 +173,10 @@ def add_profile(profile_name, max_hr=None, max_prework_hr=None, sex=None, birth_
     
     # Load existing
     data = {"profiles": {}, "last_used_profile": "Default"}
-    if os.path.exists(PROFILES_FILE):
+    profiles_file = get_profiles_file()
+    if os.path.exists(profiles_file):
         try:
-            with open(PROFILES_FILE, 'r') as f:
+            with open(profiles_file, 'r') as f:
                 data = json.load(f)
         except:
             pass
@@ -141,18 +195,19 @@ def add_profile(profile_name, max_hr=None, max_prework_hr=None, sex=None, birth_
             "weight_unit_pref": weight_unit_pref
         }
         
-        with open(PROFILES_FILE, 'w') as f:
+        with open(profiles_file, 'w') as f:
             json.dump(data, f, indent=4)
             
     return data["profiles"][profile_name]["filename"]
 
 def update_profile(profile_name, max_hr=None, max_prework_hr=None, sex=None, birth_date=None, weight_kg=None, weight_unit_pref=None):
     """Updates existing profile metadata."""
-    if not os.path.exists(PROFILES_FILE):
+    profiles_file = get_profiles_file()
+    if not os.path.exists(profiles_file):
         return
         
     try:
-        with open(PROFILES_FILE, 'r') as f:
+        with open(profiles_file, 'r') as f:
             data = json.load(f)
             
         if profile_name in data["profiles"]:
@@ -170,7 +225,7 @@ def update_profile(profile_name, max_hr=None, max_prework_hr=None, sex=None, bir
             if weight_unit_pref is not None:
                 data["profiles"][profile_name]["weight_unit_pref"] = weight_unit_pref
                 
-            with open(PROFILES_FILE, 'w') as f:
+            with open(profiles_file, 'w') as f:
                 json.dump(data, f, indent=4)
                 print(f"Updated profile {profile_name}: max_hr={max_hr}, max_prework_hr={max_prework_hr}")
                 
@@ -179,20 +234,22 @@ def update_profile(profile_name, max_hr=None, max_prework_hr=None, sex=None, bir
 
 def get_profile_details(profile_name):
     """Returns dict of profile metadata or empty dict."""
-    if not os.path.exists(PROFILES_FILE):
+    profiles_file = get_profiles_file()
+    if not os.path.exists(profiles_file):
         return {}
         
     try:
-        with open(PROFILES_FILE, 'r') as f:
+        with open(profiles_file, 'r') as f:
             data = json.load(f)
             return data.get("profiles", {}).get(profile_name, {})
     except Exception:
         return {}
 
 def get_last_used_profile():
-    if os.path.exists(PROFILES_FILE):
+    profiles_file = get_profiles_file()
+    if os.path.exists(profiles_file):
             try:
-                with open(PROFILES_FILE, 'r') as f:
+                with open(profiles_file, 'r') as f:
                     data = json.load(f)
                     return data.get("last_used_profile", "Default")
             except:
@@ -200,14 +257,15 @@ def get_last_used_profile():
     return "Default"
 
 def update_last_used_profile(profile_name):
-    if os.path.exists(PROFILES_FILE):
+    profiles_file = get_profiles_file()
+    if os.path.exists(profiles_file):
             try:
-                with open(PROFILES_FILE, 'r') as f:
+                with open(profiles_file, 'r') as f:
                     data = json.load(f)
                 
                 data["last_used_profile"] = profile_name
                 
-                with open(PROFILES_FILE, 'w') as f:
+                with open(profiles_file, 'w') as f:
                     json.dump(data, f, indent=4)
             except Exception as e:
                 print(f"Error updating last profile: {e}")
@@ -240,7 +298,7 @@ def get_next_workout_number(profile_name, date_str, timezone_str):
     base_pattern = f"{safe_profile}_{date_str}_{timezone_str}_WO"
     
     # List files matching the pattern
-    pattern = os.path.join(DOCS_DIR, f"{base_pattern}*.json")
+    pattern = os.path.join(get_base_dir(), f"{base_pattern}*.json")
     files = glob.glob(pattern)
     
     max_num = 0
@@ -274,7 +332,7 @@ def save_workout_json(data, profile_name="Default"):
     wo_num = get_next_workout_number(profile_name, date_str, timezone_str)
     
     filename = f"{safe_profile}_{date_str}_{timezone_str}_WO{wo_num}.json"
-    filepath = os.path.join(DOCS_DIR, filename)
+    filepath = os.path.join(get_base_dir(), filename)
     
     # 3. Save
     try:
@@ -288,7 +346,7 @@ def save_workout_json(data, profile_name="Default"):
 
 def load_workout_details_json(filename):
     if not filename: return {}
-    filepath = os.path.join(DOCS_DIR, filename)
+    filepath = os.path.join(get_base_dir(), filename)
     if not os.path.exists(filepath):
         return {}
     
