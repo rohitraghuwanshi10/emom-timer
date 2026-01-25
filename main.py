@@ -416,10 +416,17 @@ class EMOMApp(ctk.CTk):
         self.chk_auto_reg = ctk.CTkCheckBox(self.hr_control_frame, text="Auto Regulate Rest", variable=self.auto_regulation_var,
                                             font=(FONT_FAMILY, 12), text_color=TEXT_SECONDARY,
                                             fg_color=ACCENT_PURPLE, hover_color=ACCENT_PURPLE, border_color=TEXT_SECONDARY,
-                                            state="disabled") # Initially disabled
+                                            state="disabled", command=self.update_auto_regulation) # Initially disabled
         self.chk_auto_reg.grid(row=0, column=2, padx=10, pady=8, sticky="e")
         
         ToolTip(self.chk_auto_reg, "Extends rest period until HR drops below configured Max Pre-Work HR.")
+
+    def update_auto_regulation(self):
+        """Updates the running workout instance if the user toggles the checkbox mid-workout."""
+        if self.workout:
+            val = self.auto_regulation_var.get()
+            self.workout.auto_regulation = val
+            print(f"Updated active workout auto_regulation to: {val}")
 
         # 5. Footer (History) -> Row 4
         self.footer_frame = ctk.CTkFrame(workout_tab, fg_color="transparent")
