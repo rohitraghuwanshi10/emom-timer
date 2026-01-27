@@ -36,17 +36,27 @@ class HistoryFrame(ctk.CTkFrame):
         self.load_history()
 
     def refresh(self, profile_name=None):
-        if profile_name is None:
-            profile_name = self.current_profile
+        try:
+            if profile_name is None:
+                profile_name = self.current_profile
+                
+            # Clear existing widgets
+            for widget in self.table_frame.winfo_children():
+                widget.destroy()
+            for widget in self.graph_frame.winfo_children():
+                widget.destroy()
             
-        # Clear existing widgets
-        for widget in self.table_frame.winfo_children():
-            widget.destroy()
-        for widget in self.graph_frame.winfo_children():
-            widget.destroy()
-        
-        # Reload
-        self.load_history(profile_name)
+            # Reload
+            self.load_history(profile_name)
+        except Exception as e:
+            print("ERROR REFRESHING HISTORY:")
+            import traceback
+            traceback.print_exc()
+            
+            # Show error in UI
+            for widget in self.table_frame.winfo_children(): widget.destroy()
+            lbl = ctk.CTkLabel(self.table_frame, text=f"Error loading history: {e}", text_color="red")
+            lbl.pack(pady=20)
 
     def load_history(self, profile_name="Default"):
         self.current_profile = profile_name
@@ -146,11 +156,11 @@ class HistoryFrame(ctk.CTkFrame):
                 
                 # Bind Click
                 if details_file and self.on_select_callback:
-                     lbl.bind("<Double-Button-1>", lambda e, f=details_file: self.on_select_callback(f))
+                     lbl.bind("<Button-1>", lambda e, f=details_file: self.on_select_callback(f))
                      lbl.configure(cursor="pointinghand")
         
         # Load Graph
-        self.load_graph(data[1:])
+        self.load_graph(data[1:], headers)
 
     def _format_seconds(self, seconds_str):
         try:
@@ -162,12 +172,20 @@ class HistoryFrame(ctk.CTkFrame):
         except (ValueError, TypeError):
             return seconds_str
 
-    def load_graph(self, rows):
+    def load_graph(self, rows, headers=None):
         # Data Processing
-        # date_map: {date_str: [(duration, notes), ...]}
+        # date_map: {date_str: [(duration, notes, filename), ...]}
         date_map = defaultdict(list)
         
         try:
+            # Find filename index
+            file_col_idx = -1
+            if headers:
+                if "workout_details_file" in headers:
+                     file_col_idx = headers.index("workout_details_file")
+                elif "Details File" in headers:
+                     file_col_idx = headers.index("Details File")
+
             for row in rows:
                 if not row or len(row) < 6: continue
                 
@@ -186,11 +204,16 @@ class HistoryFrame(ctk.CTkFrame):
                     duration_min = 0
                 
                 # row[6] is workout_notes (optional)
+                # row[6] is workout_notes (optional)
                 notes = ""
                 if len(row) > 6:
                     notes = row[6]
+                    
+                filename = ""
+                if file_col_idx != -1 and file_col_idx < len(row):
+                    filename = row[file_col_idx]
 
-                date_map[date_str].append((duration_min, notes))
+                date_map[date_str].append((duration_min, notes, filename))
             
             if not date_map:
                 return
@@ -207,20 +230,25 @@ class HistoryFrame(ctk.CTkFrame):
             # Prepare series
             series_list = []
             notes_series_list = []
+            files_series_list = []
 
             for i in range(max_workouts):
                 series = []
                 notes_list = []
+                files_list = []
                 for d in dates:
                     workouts = date_map[d]
                     if i < len(workouts):
                         series.append(workouts[i][0])
                         notes_list.append(workouts[i][1])
+                        files_list.append(workouts[i][2])
                     else:
                         series.append(0)
                         notes_list.append("")
+                        files_list.append("")
                 series_list.append(series)
                 notes_series_list.append(notes_list)
+                files_series_list.append(files_list)
 
             # --- Modern Graph Styling ---
             plt.style.use('dark_background')
@@ -323,13 +351,36 @@ class HistoryFrame(ctk.CTkFrame):
                             annot.set_visible(True)
                             annot.last_bar = found_bar
                             canvas.draw_idle()
-                        # If it's the same bar, do nothing (optimization)
+                        
+                        # Change cursor
+                        canvas.get_tk_widget().configure(cursor="pointinghand")
+                        
                     else:
                         # Not hovering over any bar
                         if vis:
                             annot.set_visible(False)
                             annot.last_bar = None
                             canvas.draw_idle()
+                        
+                        # Reset cursor
+                        canvas.get_tk_widget().configure(cursor="")
+                else:
+                    if vis:
+                         annot.set_visible(False)
+                         annot.last_bar = None
+                         canvas.draw_idle()
+                    canvas.get_tk_widget().configure(cursor="")
+
+            def on_click(event):
+                 if event.inaxes == ax and event.button == 1: # Left click
+                    for i, bars in enumerate(bar_containers):
+                        for j, bar in enumerate(bars):
+                            if bar.contains(event)[0]:
+                                filename = files_series_list[i][j]
+                                if filename and self.on_select_callback:
+                                    print(f"Graph clicked: {filename}") # Debug
+                                    self.on_select_callback(filename)
+                                return
 
             # Embed in Tkinter
             canvas = FigureCanvasTkAgg(fig, master=self.graph_frame)
@@ -338,6 +389,8 @@ class HistoryFrame(ctk.CTkFrame):
             
             # Connect hover event
             canvas.mpl_connect("motion_notify_event", hover)
+            # Connect click event
+            canvas.mpl_connect("button_press_event", on_click)
             
         except Exception as e:
             print(f"Error generating graph: {e}")

@@ -421,12 +421,6 @@ class EMOMApp(ctk.CTk):
         
         ToolTip(self.chk_auto_reg, "Extends rest period until HR drops below configured Max Pre-Work HR.")
 
-    def update_auto_regulation(self):
-        """Updates the running workout instance if the user toggles the checkbox mid-workout."""
-        if self.workout:
-            val = self.auto_regulation_var.get()
-            self.workout.auto_regulation = val
-            print(f"Updated active workout auto_regulation to: {val}")
 
         # 5. Footer (History) -> Row 4
         self.footer_frame = ctk.CTkFrame(workout_tab, fg_color="transparent")
@@ -454,6 +448,13 @@ class EMOMApp(ctk.CTk):
         self.load_profiles()
         if self.history_frame:
             self.history_frame.refresh(self.profile_var.get())
+
+    def update_auto_regulation(self):
+        """Updates the running workout instance if the user toggles the checkbox mid-workout."""
+        if self.workout:
+            val = self.auto_regulation_var.get()
+            self.workout.auto_regulation = val
+            print(f"Updated active workout auto_regulation to: {val}")
 
     def open_settings(self):
         # Create Dialog
