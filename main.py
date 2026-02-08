@@ -391,11 +391,12 @@ class EMOMApp(ctk.CTk):
                                        font=(FONT_FAMILY, 18, "bold"), text_color="black")
         self.btn_start.grid(row=0, column=0, padx=(0, 10), sticky="ew")
 
-        self.btn_reset = ctk.CTkButton(self.button_frame, text="RESET", command=self.reset_workout, 
+        self.btn_stop = ctk.CTkButton(self.button_frame, text="STOP", command=self.reset_workout, 
                                        height=BUTTON_HEIGHT, corner_radius=BUTTON_HEIGHT//2,
                                        fg_color=CARD_COLOR, hover_color="#3A3A3C", 
-                                       font=(FONT_FAMILY, 18, "bold"), text_color=ACCENT_RED)
-        self.btn_reset.grid(row=0, column=1, padx=(10, 0), sticky="ew")
+                                       font=(FONT_FAMILY, 18, "bold"), text_color=ACCENT_RED,
+                                       state="disabled")
+        self.btn_stop.grid(row=0, column=1, padx=(10, 0), sticky="ew")
 
         # 4. Heart Rate Controls -> Row 3
         self.hr_control_frame = ctk.CTkFrame(workout_tab, fg_color=CARD_COLOR, corner_radius=15)
@@ -842,6 +843,7 @@ class EMOMApp(ctk.CTk):
         self.save_history(self.workout.total_rounds) # Use workout attribute directly
         
         self.btn_start.configure(state="normal", text="START", fg_color=ACCENT_GREEN, text_color="black", command=self.start_workout)
+        self.btn_stop.configure(state="disabled")
         self.entry_rounds.configure(state="normal")
         self.entry_timer.configure(state="normal")
         self.entry_rest.configure(state="normal")
@@ -863,7 +865,7 @@ class EMOMApp(ctk.CTk):
         if self.workout:
              # If interrupted mid-workout, maybe save? existing logic:
              if self.start_time is not None and self.workout.current_round > 0:
-                 completed_rounds = max(0, self.workout.current_round - 1)
+                 completed_rounds = self.workout.current_round
                  self.save_history(completed_rounds)
                  
              self.workout.reset()
@@ -879,6 +881,7 @@ class EMOMApp(ctk.CTk):
         self.lbl_status.configure(text="READY", text_color=ACCENT_BLUE)
         
         self.btn_start.configure(state="normal", text="START", fg_color=ACCENT_GREEN, text_color="black", command=self.start_workout)
+        self.btn_stop.configure(state="disabled")
         self.entry_rounds.configure(state="normal")
         self.entry_timer.configure(state="normal")
         self.entry_rest.configure(state="normal")
@@ -931,6 +934,7 @@ class EMOMApp(ctk.CTk):
         
         # Prep UI
         self.btn_start.configure(text="PAUSE", fg_color=ACCENT_ORANGE, text_color="black", command=self.toggle_pause)
+        self.btn_stop.configure(state="normal") # Enable Stop
         self.entry_rounds.configure(state="disabled")
         self.entry_timer.configure(state="disabled")
         self.entry_rest.configure(state="disabled")

@@ -117,16 +117,11 @@ class Workout:
             
         elif self.state == WorkoutState.WORK:
             # Check if we should rest (always rest unless last round finished logic handled else where)
-            if self._calculate_rest_duration() > 0 and self.current_round < self.total_rounds: 
-                 if self.current_round < self.total_rounds:
-                     self._start_rest(event)
-                 else:
-                    self._finish(event)
+            # Infinite Loop: Always continue
+            if self._calculate_rest_duration() > 0: 
+                 self._start_rest(event)
             else:
-                if self.current_round < self.total_rounds:
-                    self._start_round(event) # Next round immediately
-                else:
-                    self._finish(event)
+                 self._start_round(event) # Next round immediately
                     
         elif self.state == WorkoutState.REST:
             # Check Auto-Regulation before starting next round
@@ -138,10 +133,7 @@ class Workout:
             
             self.waiting_for_hr = False
             
-            if self.current_round < self.total_rounds:
-                self._start_round(event)
-            else:
-                self._finish(event) # Should not really happen if logic above is correct
+            self._start_round(event) # Always start next round
                 
     def _start_round(self, event: WorkoutEvent):
         if self.state == WorkoutState.PREP:
