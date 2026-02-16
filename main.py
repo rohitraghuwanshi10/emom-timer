@@ -214,6 +214,16 @@ class EMOMApp(ctk.CTk):
         
         if self.history_frame:
             self.history_frame.refresh(choice)
+            
+        # Update Auto-Regulation if HR connected
+        if hasattr(self, 'hr_monitor') and self.hr_monitor.is_connected: # Check connection
+            if self.current_max_prework_hr:
+                self.auto_regulation_var.set(True)
+                print(f"Auto-enabled Auto Regulation for {choice}")
+            else:
+                self.auto_regulation_var.set(False)
+        elif hasattr(self, 'hr_monitor') and not self.hr_monitor.is_connected:
+             self.auto_regulation_var.set(False) # Ensure off if disconnected (though usually handled by status change)
 
     def add_profile(self):
         dialog = ctk.CTkInputDialog(text="Enter Profile Name:", title="New Profile")
@@ -675,19 +685,38 @@ class EMOMApp(ctk.CTk):
         self.lbl_hr_zone.configure(text_color=color)
 
     def on_hr_status_change(self, status):
-        self.after(0, lambda: self.hr_status.set(status))
-        if status == "Disconnected":
-             self.after(0, lambda: self.btn_connect_hr.configure(text="Connect HR", fg_color=ACCENT_BLUE))
-             self.after(0, lambda: self.current_hr.set("--"))
-             self.after(0, lambda: self.hr_zone.set(""))
-             # Disable Auto Reg
-             self.after(0, lambda: self.chk_auto_reg.configure(state="disabled"))
-             self.after(0, lambda: self.auto_regulation_var.set(False))
+        # Schedule all UI updates on main thread
+        self.after(0, lambda: self._handle_hr_status(status))
 
+    def _handle_hr_status(self, status):
+        self.hr_status.set(status)
+        
+        if status == "Disconnected":
+            self._on_monitor_disconnected()
         elif status.endswith("Connected") and not status == "Disconnected":
-             self.after(0, lambda: self.btn_connect_hr.configure(text="Disconnect", fg_color=ACCENT_RED))
-             # Enable Auto Reg
-             self.after(0, lambda: self.chk_auto_reg.configure(state="normal"))
+            self._on_monitor_connected()
+
+    def _on_monitor_disconnected(self):
+        self.btn_connect_hr.configure(text="Connect HR", fg_color=ACCENT_BLUE)
+        self.current_hr.set("--")
+        self.hr_zone.set("")
+        
+        # Disable Auto Reg
+        self.chk_auto_reg.configure(state="disabled")
+        self.auto_regulation_var.set(False)
+
+    def _on_monitor_connected(self):
+        self.btn_connect_hr.configure(text="Disconnect", fg_color=ACCENT_RED)
+        # Enable Auto Reg
+        self.chk_auto_reg.configure(state="normal")
+        
+        # Auto-Check if configured
+        if self.current_max_prework_hr:
+             try:
+                 self.auto_regulation_var.set(True)
+                 print(f"Auto-enabled Auto Regulation (Max Pre-Work HR: {self.current_max_prework_hr})")
+             except Exception as e:
+                 print(f"Error auto-enabling regulation: {e}")
     
     def show_details(self, filename):
         """Callback from history to show details tab."""
