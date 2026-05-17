@@ -34,7 +34,7 @@ class DetailsFrame(ctk.CTkFrame):
         self.stats_frame = ctk.CTkFrame(self, fg_color=CARD_COLOR, corner_radius=15)
         self.stats_frame.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
         
-        for i in range(3):
+        for i in range(4):
             self.stats_frame.grid_columnconfigure(i, weight=1)
             
         # Placeholders
@@ -77,6 +77,7 @@ class DetailsFrame(ctk.CTkFrame):
 
         # Stats to show
         stats = [
+            ("Rounds", str(data.get("total_rounds_completed", 0)), TEXT_COLOR),
             ("Total Time", fmt_sec(data.get("total_time_sec", 0)), TEXT_COLOR),
             ("Work Time", fmt_sec(data.get("work_time_sec", 0)), ACCENT_GREEN),
             ("Rest Time", fmt_sec(data.get("rest_time_sec", 0)), ACCENT_ORANGE),
@@ -86,13 +87,13 @@ class DetailsFrame(ctk.CTkFrame):
         ]
         
         # Row 1
-        for i, (title, val, col) in enumerate(stats[:3]):
+        for i, (title, val, col) in enumerate(stats[:4]):
              var = ctk.StringVar(value=val)
              self._create_stat_card(self.stats_frame, 0, i, title, var, col)
              
         # Row 2 (HR)
         if data.get("max_hr", 0) > 0:
-             for i, (title, val, col) in enumerate(stats[3:]):
+             for i, (title, val, col) in enumerate(stats[4:]):
                  var = ctk.StringVar(value=val)
                  self._create_stat_card(self.stats_frame, 1, i, title, var, col)
                  
@@ -100,7 +101,7 @@ class DetailsFrame(ctk.CTkFrame):
         notes = data.get("workout_notes", "")
         if notes:
             lbl = ctk.CTkLabel(self.stats_frame, text=f"Notes: {notes}", font=("Arial", 14), text_color=TEXT_SECONDARY)
-            lbl.grid(row=2, column=0, columnspan=3, pady=10)
+            lbl.grid(row=2, column=0, columnspan=4, pady=10)
 
         # Graph
         hr_details = data.get("hr_details", [])
