@@ -220,11 +220,14 @@ class EMOMApp(ctk.CTk):
         if hasattr(self, 'hr_monitor') and self.hr_monitor.is_connected: # Check connection
             if self.current_max_prework_hr:
                 self.auto_regulation_var.set(True)
+                self.update_auto_regulation()
                 print(f"Auto-enabled Auto Regulation for {choice}")
             else:
                 self.auto_regulation_var.set(False)
+                self.update_auto_regulation()
         elif hasattr(self, 'hr_monitor') and not self.hr_monitor.is_connected:
              self.auto_regulation_var.set(False) # Ensure off if disconnected (though usually handled by status change)
+             self.update_auto_regulation()
 
     def add_profile(self):
         dialog = ctk.CTkInputDialog(text="Enter Profile Name:", title="New Profile")
@@ -466,7 +469,8 @@ class EMOMApp(ctk.CTk):
         if self.workout:
             val = self.auto_regulation_var.get()
             self.workout.auto_regulation = val
-            print(f"Updated active workout auto_regulation to: {val}")
+            self.workout.max_prework_hr = self.current_max_prework_hr
+            print(f"Updated active workout auto_regulation to: {val}, max_prework_hr to: {self.current_max_prework_hr}")
 
     def open_settings(self):
         # Create Dialog
@@ -714,6 +718,7 @@ class EMOMApp(ctk.CTk):
         # Disable Auto Reg
         self.chk_auto_reg.configure(state="disabled")
         self.auto_regulation_var.set(False)
+        self.update_auto_regulation()
 
     def _on_monitor_connected(self):
         self.btn_connect_hr.configure(text="Disconnect", fg_color=ACCENT_RED)
@@ -724,6 +729,7 @@ class EMOMApp(ctk.CTk):
         if self.current_max_prework_hr:
              try:
                  self.auto_regulation_var.set(True)
+                 self.update_auto_regulation()
                  print(f"Auto-enabled Auto Regulation (Max Pre-Work HR: {self.current_max_prework_hr})")
              except Exception as e:
                  print(f"Error auto-enabling regulation: {e}")
