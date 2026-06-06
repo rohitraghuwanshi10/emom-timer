@@ -67,6 +67,21 @@ class Workout:
                 self.actual_rest_time_sec += paused_duration
                 self._pause_start_time = None
             
+    def get_completed_rounds(self) -> int:
+        if self.current_round == 0:
+            return 0
+            
+        active_state = self.previous_state if self.state == WorkoutState.PAUSED else self.state
+        
+        if active_state == WorkoutState.WORK:
+            completed_work = self.work_duration - self.time_left
+            if completed_work > (self.work_duration / 2):
+                return self.current_round
+            else:
+                return self.current_round - 1
+        else:
+            return self.current_round
+
     def reset(self):
         self.state = WorkoutState.IDLE
         self.current_round = 0

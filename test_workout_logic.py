@@ -45,5 +45,54 @@ class TestWorkoutIncrementalRest(unittest.TestCase):
         workout.current_round = 7
         self.assertEqual(workout._calculate_rest_duration(), 40, "Round 7 should have 2 increments")
 
+    def test_completed_rounds_logic(self):
+        from workout import WorkoutState
+        
+        # Test case: 60s work, 30s rest
+        workout = Workout(total_rounds=5, work_duration=60, rest_duration=30)
+        
+        # 1. Prep phase / Initial state
+        workout.current_round = 0
+        workout.state = WorkoutState.PREP
+        self.assertEqual(workout.get_completed_rounds(), 0)
+        
+        # 2. Work phase of Round 1
+        workout.current_round = 1
+        workout.state = WorkoutState.WORK
+        
+        # Exactly 0s completed (60s left)
+        workout.time_left = 60
+        self.assertEqual(workout.get_completed_rounds(), 0)
+        
+        # 29s completed (31s left)
+        workout.time_left = 31
+        self.assertEqual(workout.get_completed_rounds(), 0)
+        
+        # Exactly 50% (30s completed, 30s left)
+        workout.time_left = 30
+        self.assertEqual(workout.get_completed_rounds(), 0)
+        
+        # More than 50% (31s completed, 29s left)
+        workout.time_left = 29
+        self.assertEqual(workout.get_completed_rounds(), 1)
+        
+        # 3. Rest phase of Round 1
+        workout.state = WorkoutState.REST
+        self.assertEqual(workout.get_completed_rounds(), 1)
+        
+        # 4. Paused state (WORK)
+        workout.state = WorkoutState.PAUSED
+        workout.previous_state = WorkoutState.WORK
+        
+        workout.time_left = 30 # Exactly 50%
+        self.assertEqual(workout.get_completed_rounds(), 0)
+        
+        workout.time_left = 29 # More than 50%
+        self.assertEqual(workout.get_completed_rounds(), 1)
+        
+        # 5. Paused state (REST)
+        workout.previous_state = WorkoutState.REST
+        self.assertEqual(workout.get_completed_rounds(), 1)
+
 if __name__ == '__main__':
     unittest.main()

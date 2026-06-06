@@ -168,7 +168,7 @@ def load_profiles():
 
 
 
-def add_profile(profile_name, max_hr=None, max_prework_hr=None, sex=None, birth_date=None, weight_kg=None, weight_unit_pref="kg"):
+def add_profile(profile_name, max_hr=None, max_prework_hr=None, sex=None, birth_date=None, weight_kg=None, weight_unit_pref="kg", auto_connect_hr=True):
     _ensure_dir()
     
     # Load existing
@@ -192,7 +192,8 @@ def add_profile(profile_name, max_hr=None, max_prework_hr=None, sex=None, birth_
             "sex": sex,
             "birth_date": birth_date,
             "weight_kg": weight_kg,
-            "weight_unit_pref": weight_unit_pref
+            "weight_unit_pref": weight_unit_pref,
+            "auto_connect_hr": auto_connect_hr
         }
         
         with open(profiles_file, 'w') as f:
@@ -200,7 +201,7 @@ def add_profile(profile_name, max_hr=None, max_prework_hr=None, sex=None, birth_
             
     return data["profiles"][profile_name]["filename"]
 
-def update_profile(profile_name, max_hr=None, max_prework_hr=None, sex=None, birth_date=None, weight_kg=None, weight_unit_pref=None):
+def update_profile(profile_name, max_hr=None, max_prework_hr=None, sex=None, birth_date=None, weight_kg=None, weight_unit_pref=None, auto_connect_hr=None):
     """Updates existing profile metadata."""
     profiles_file = get_profiles_file()
     if not os.path.exists(profiles_file):
@@ -224,6 +225,8 @@ def update_profile(profile_name, max_hr=None, max_prework_hr=None, sex=None, bir
                 data["profiles"][profile_name]["weight_kg"] = weight_kg
             if weight_unit_pref is not None:
                 data["profiles"][profile_name]["weight_unit_pref"] = weight_unit_pref
+            if auto_connect_hr is not None:
+                data["profiles"][profile_name]["auto_connect_hr"] = auto_connect_hr
                 
             with open(profiles_file, 'w') as f:
                 json.dump(data, f, indent=4)

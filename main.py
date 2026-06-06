@@ -211,6 +211,7 @@ class EMOMApp(ctk.CTk):
         details = storage.get_profile_details(choice)
         self.current_max_hr = details.get("max_hr")
         self.current_max_prework_hr = details.get("max_prework_hr")
+        self.current_auto_connect_hr = details.get("auto_connect_hr", True)
         
         if self.history_frame:
             self.history_frame.refresh(choice)
@@ -492,6 +493,7 @@ class EMOMApp(ctk.CTk):
         current_birth = details.get("birth_date", "")
         current_weight_kg = details.get("weight_kg", "")
         current_unit = details.get("weight_unit_pref", "kg")
+        current_auto_connect = details.get("auto_connect_hr", True)
 
         lbl_title = ctk.CTkLabel(tab_profile, text=f"Edit {current_profile}", font=(FONT_FAMILY, 16, "bold"))
         lbl_title.pack(pady=(10, 10))
@@ -552,6 +554,12 @@ class EMOMApp(ctk.CTk):
         seg_unit = ctk.CTkSegmentedButton(frm_weight, values=["kg", "lbs"], variable=unit_var, width=60)
         seg_unit.pack(side="left", padx=5)
 
+        # Auto Connect HR
+        frm_auto_connect = create_row(tab_profile)
+        auto_connect_var = ctk.BooleanVar(value=current_auto_connect)
+        chk_auto_connect = ctk.CTkCheckBox(frm_auto_connect, text="Auto connect HR monitor", variable=auto_connect_var, font=(FONT_FAMILY, 12))
+        chk_auto_connect.pack(side="left", padx=5)
+
         def save_profile():
             try:
                 val = entry_max_hr.get().strip()
@@ -566,6 +574,7 @@ class EMOMApp(ctk.CTk):
                 weight_input = entry_weight.get().strip()
                 weight_kg = None
                 unit_pref = unit_var.get()
+                auto_connect_hr = auto_connect_var.get()
                 
                 if weight_input:
                     try:
@@ -577,10 +586,11 @@ class EMOMApp(ctk.CTk):
                     except: pass
                 
                 storage.update_profile(current_profile, max_hr=max_hr, max_prework_hr=max_prework_hr,
-                                       sex=sex, birth_date=birth_date, weight_kg=weight_kg, weight_unit_pref=unit_pref)
+                                       sex=sex, birth_date=birth_date, weight_kg=weight_kg, weight_unit_pref=unit_pref, auto_connect_hr=auto_connect_hr)
                                        
                 self.current_max_hr = max_hr 
                 self.current_max_prework_hr = max_prework_hr
+                self.current_auto_connect_hr = auto_connect_hr
                 dialog.destroy()
                 print(f"Saved Settings for {current_profile}")
             except ValueError:
@@ -894,8 +904,9 @@ class EMOMApp(ctk.CTk):
         if self.workout:
              # If interrupted mid-workout, maybe save? existing logic:
              if self.start_time is not None and self.workout.current_round > 0:
-                 completed_rounds = self.workout.current_round
-                 self.save_history(completed_rounds)
+                 completed_rounds = self.workout.get_completed_rounds()
+                 if completed_rounds > 0:
+                     self.save_history(completed_rounds)
                  
              self.workout.reset()
 
@@ -974,6 +985,11 @@ class EMOMApp(ctk.CTk):
         
         # Start Logic
         self.workout.start()
+        
+        # Auto-connect HR if not connected
+        if hasattr(self, 'current_auto_connect_hr') and self.current_auto_connect_hr:
+            if not self.hr_monitor.is_connected:
+                self.toggle_hr_connection()
         
         # Start Loop
         self.update_timer()
