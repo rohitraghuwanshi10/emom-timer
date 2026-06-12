@@ -376,3 +376,65 @@ def load_history(profile_name="Default"):
         print(f"Error loading CSV: {e}")
         
     return history
+
+def save_template(profile_name, template_name, rounds, work_time, rest_time, notes):
+    profiles_file = get_profiles_file()
+    if not os.path.exists(profiles_file):
+        return
+        
+    try:
+        with open(profiles_file, 'r') as f:
+            data = json.load(f)
+            
+        if profile_name in data["profiles"]:
+            profile = data["profiles"][profile_name]
+            if "templates" not in profile:
+                profile["templates"] = {}
+                
+            profile["templates"][template_name] = {
+                "rounds": rounds,
+                "work_time": work_time,
+                "rest_time": rest_time,
+                "notes": notes
+            }
+            
+            with open(profiles_file, 'w') as f:
+                json.dump(data, f, indent=4)
+                print(f"Saved template '{template_name}' for profile {profile_name}")
+                
+    except Exception as e:
+        print(f"Error saving template: {e}")
+
+def delete_template(profile_name, template_name):
+    profiles_file = get_profiles_file()
+    if not os.path.exists(profiles_file):
+        return
+        
+    try:
+        with open(profiles_file, 'r') as f:
+            data = json.load(f)
+            
+        if profile_name in data["profiles"]:
+            profile = data["profiles"][profile_name]
+            if "templates" in profile and template_name in profile["templates"]:
+                del profile["templates"][template_name]
+                
+                with open(profiles_file, 'w') as f:
+                    json.dump(data, f, indent=4)
+                    print(f"Deleted template '{template_name}' for profile {profile_name}")
+                    
+    except Exception as e:
+        print(f"Error deleting template: {e}")
+
+def get_templates(profile_name):
+    profiles_file = get_profiles_file()
+    if not os.path.exists(profiles_file):
+        return {}
+        
+    try:
+        with open(profiles_file, 'r') as f:
+            data = json.load(f)
+            return data.get("profiles", {}).get(profile_name, {}).get("templates", {})
+    except Exception as e:
+        print(f"Error getting templates: {e}")
+        return {}

@@ -98,6 +98,7 @@ class EMOMApp(ctk.CTk):
         self.rest_time_var = ctk.StringVar(value="0")
         self.save_history_var = ctk.BooleanVar(value=True)
         self.notes_var = ctk.StringVar()
+        self.template_var = ctk.StringVar(value="Select Template...")
         
         # Incremental Rest Vars
         self.incremental_rest_var = ctk.BooleanVar(value=False)
@@ -216,6 +217,8 @@ class EMOMApp(ctk.CTk):
         if self.history_frame:
             self.history_frame.refresh(choice)
             
+        self.load_templates()
+            
         # Update Auto-Regulation if HR connected
         if hasattr(self, 'hr_monitor') and self.hr_monitor.is_connected: # Check connection
             if self.current_max_prework_hr:
@@ -244,6 +247,68 @@ class EMOMApp(ctk.CTk):
                 self.profile_menu.configure(values=self.available_profiles)
                 self.profile_var.set(clean_name)
                 self.change_profile(clean_name)
+
+    def load_templates(self):
+        if not hasattr(self, 'template_menu'):
+            return
+            
+        current_profile = self.profile_var.get()
+        templates_dict = storage.get_templates(current_profile)
+        
+        values = ["Select Template..."]
+        if templates_dict:
+            values.extend(sorted(list(templates_dict.keys())))
+            
+        self.template_menu.configure(values=values)
+        self.template_var.set("Select Template...")
+
+    def select_template(self, choice):
+        if choice == "Select Template...":
+            return
+            
+        current_profile = self.profile_var.get()
+        templates_dict = storage.get_templates(current_profile)
+        
+        if choice in templates_dict:
+            template = templates_dict[choice]
+            self.total_rounds_var.set(str(template.get("rounds", 10)))
+            self.work_time_var.set(str(template.get("work_time", 60)))
+            self.rest_time_var.set(str(template.get("rest_time", 0)))
+            self.notes_var.set(template.get("notes", ""))
+            print(f"Loaded template '{choice}': rounds={template.get('rounds')}, work={template.get('work_time')}, rest={template.get('rest_time')}")
+
+    def save_template_click(self):
+        current_profile = self.profile_var.get()
+        
+        dialog = ctk.CTkInputDialog(text="Enter Template Name:", title="Save Template")
+        template_name = dialog.get_input()
+        
+        if template_name and template_name.strip():
+            clean_name = template_name.strip()
+            
+            try:
+                rounds = int(self.total_rounds_var.get())
+                work_time = int(self.work_time_var.get())
+                rest_time = int(self.rest_time_var.get() or 0)
+                notes = self.notes_var.get()
+            except ValueError:
+                print("Invalid configuration values; cannot save template.")
+                return
+                
+            storage.save_template(current_profile, clean_name, rounds, work_time, rest_time, notes)
+            self.load_templates()
+            self.template_var.set(clean_name)
+            print(f"Saved and selected template: {clean_name}")
+
+    def delete_template_click(self):
+        current_profile = self.profile_var.get()
+        selected_template = self.template_var.get()
+        
+        if not selected_template or selected_template == "Select Template...":
+            return
+            
+        storage.delete_template(current_profile, selected_template)
+        self.load_templates()
 
     def _create_widgets(self):
         self.grid_columnconfigure(0, weight=1)
@@ -298,34 +363,58 @@ class EMOMApp(ctk.CTk):
         self.config_frame.grid(row=0, column=0, padx=10, pady=(5, 5), sticky="ew")
         self.config_frame.grid_columnconfigure((0, 1, 2), weight=1)
         
-        # Labels (Secondary Text)
+        # Template Selection Frame (Row 0)
+        self.template_frame = ctk.CTkFrame(self.config_frame, fg_color="transparent")
+        self.template_frame.grid(row=0, column=0, columnspan=3, sticky="ew", padx=15, pady=(15, 5))
+        
+        lbl_template = ctk.CTkLabel(self.template_frame, text="TEMPLATE", font=(FONT_FAMILY, 12, "bold"), text_color=TEXT_SECONDARY)
+        lbl_template.pack(side="left", padx=(0, 5))
+        
+        self.template_menu = ctk.CTkOptionMenu(self.template_frame, variable=self.template_var,
+                                              values=["Select Template..."], command=self.select_template,
+                                              fg_color="#2C2C2E", button_color="#2C2C2E",
+                                              button_hover_color="#3A3A3C",
+                                              text_color=TEXT_COLOR, font=(FONT_FAMILY, 12), height=28)
+        self.template_menu.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        
+        self.btn_save_template = ctk.CTkButton(self.template_frame, text="Save", command=self.save_template_click,
+                                               fg_color=ACCENT_BLUE, hover_color="#0060df", height=28, width=50, corner_radius=14,
+                                               font=(FONT_FAMILY, 12, "bold"), text_color="white")
+        self.btn_save_template.pack(side="left", padx=(0, 5))
+        
+        self.btn_delete_template = ctk.CTkButton(self.template_frame, text="❌", command=self.delete_template_click,
+                                                 fg_color="transparent", hover_color="#3A3A3C", height=28, width=28, corner_radius=14,
+                                                 text_color=ACCENT_RED, font=(FONT_FAMILY, 12, "bold"))
+        self.btn_delete_template.pack(side="left")
+
+        # Labels (Secondary Text) - Row 1
         self.lbl_rounds = ctk.CTkLabel(self.config_frame, text="ROUNDS", font=(FONT_FAMILY, 12, "bold"), text_color=TEXT_SECONDARY)
-        self.lbl_rounds.grid(row=0, column=0, pady=(15, 5))
+        self.lbl_rounds.grid(row=1, column=0, pady=(15, 5))
         
         self.lbl_work = ctk.CTkLabel(self.config_frame, text="WORK (SEC)", font=(FONT_FAMILY, 12, "bold"), text_color=TEXT_SECONDARY)
-        self.lbl_work.grid(row=0, column=1, pady=(15, 5))
+        self.lbl_work.grid(row=1, column=1, pady=(15, 5))
         
         self.lbl_rest = ctk.CTkLabel(self.config_frame, text="REST (SEC)", font=(FONT_FAMILY, 12, "bold"), text_color=TEXT_SECONDARY)
-        self.lbl_rest.grid(row=0, column=2, pady=(15, 5))
+        self.lbl_rest.grid(row=1, column=2, pady=(15, 5))
 
-        # Inputs (Big Number Style)
+        # Inputs (Big Number Style) - Row 2
         entry_font = (FONT_FAMILY, 24, "bold")
         
         self.entry_rounds = ctk.CTkEntry(self.config_frame, textvariable=self.total_rounds_var, width=60, 
                                          font=entry_font, justify="center", fg_color="transparent", border_width=0, text_color=ACCENT_BLUE)
-        self.entry_rounds.grid(row=1, column=0, pady=(0, 15))
+        self.entry_rounds.grid(row=2, column=0, pady=(0, 15))
 
         self.entry_timer = ctk.CTkEntry(self.config_frame, textvariable=self.work_time_var, width=60, 
                                         font=entry_font, justify="center", fg_color="transparent", border_width=0, text_color=ACCENT_GREEN)
-        self.entry_timer.grid(row=1, column=1, pady=(0, 15))
+        self.entry_timer.grid(row=2, column=1, pady=(0, 15))
 
         self.entry_rest = ctk.CTkEntry(self.config_frame, textvariable=self.rest_time_var, width=60, 
                                        font=entry_font, justify="center", fg_color="transparent", border_width=0, text_color=ACCENT_ORANGE)
-        self.entry_rest.grid(row=1, column=2, pady=(0, 15))
+        self.entry_rest.grid(row=2, column=2, pady=(0, 15))
 
-        # Divider for Notes
+        # Divider for Notes - Row 3
         self.notes_frame = ctk.CTkFrame(self.config_frame, fg_color="transparent")
-        self.notes_frame.grid(row=2, column=0, columnspan=3, sticky="ew", padx=15, pady=(0, 15))
+        self.notes_frame.grid(row=3, column=0, columnspan=3, sticky="ew", padx=15, pady=(0, 15))
         
         self.lbl_notes = ctk.CTkLabel(self.notes_frame, text="NOTES", font=(FONT_FAMILY, 12, "bold"), text_color=TEXT_SECONDARY)
         self.lbl_notes.pack(anchor="w", pady=(0, 5))
@@ -334,15 +423,15 @@ class EMOMApp(ctk.CTk):
                                         fg_color="#2C2C2E", border_width=0, corner_radius=10, height=35, text_color=TEXT_COLOR)
         self.entry_notes.pack(fill="x")
 
-        # Incremental Rest Switch
+        # Incremental Rest Switch - Row 4
         self.switch_inc = ctk.CTkSwitch(self.config_frame, text="Incremental Rest", variable=self.incremental_rest_var, 
                                         command=self.toggle_inc_options, font=(FONT_FAMILY, 12, "bold"), text_color=TEXT_SECONDARY,
                                         progress_color=ACCENT_PURPLE)
-        self.switch_inc.grid(row=3, column=0, columnspan=3, pady=(10, 10))
+        self.switch_inc.grid(row=4, column=0, columnspan=3, pady=(10, 10))
 
-        # Incremental Rest Options Frame (Initially Hidden logic handled by toggle)
+        # Incremental Rest Options Frame (Initially Hidden logic handled by toggle) - Row 5
         self.inc_frame = ctk.CTkFrame(self.config_frame, fg_color="transparent")
-        self.inc_frame.grid(row=4, column=0, columnspan=3, sticky="ew", padx=15, pady=(0, 15))
+        self.inc_frame.grid(row=5, column=0, columnspan=3, sticky="ew", padx=15, pady=(0, 15))
         self.inc_frame.grid_remove() # Hide initially if False
         self.inc_frame.grid_columnconfigure((0, 1, 2), weight=1)
         
@@ -756,7 +845,7 @@ class EMOMApp(ctk.CTk):
         except:
              max_hr = 190
 
-        self.details_frame.update_view(data, max_hr_profile=max_hr)
+        self.details_frame.update_view(data, max_hr_profile=max_hr, profile_name=profile_name)
         
         # Switch Tab
         self.tabview.set("Workout Details")
@@ -892,6 +981,9 @@ class EMOMApp(ctk.CTk):
         self.entry_rounds.configure(state="normal")
         self.entry_timer.configure(state="normal")
         self.entry_rest.configure(state="normal")
+        self.template_menu.configure(state="normal")
+        self.btn_save_template.configure(state="normal")
+        self.btn_delete_template.configure(state="normal")
         self.switch_inc.configure(state="normal") # Enable Swtich
 
         if self.incremental_rest_var.get():
@@ -931,6 +1023,9 @@ class EMOMApp(ctk.CTk):
         self.entry_rounds.configure(state="normal")
         self.entry_timer.configure(state="normal")
         self.entry_rest.configure(state="normal")
+        self.template_menu.configure(state="normal")
+        self.btn_save_template.configure(state="normal")
+        self.btn_delete_template.configure(state="normal")
         self.switch_inc.configure(state="normal") # Enable Swtich
 
         if self.incremental_rest_var.get():
@@ -984,6 +1079,9 @@ class EMOMApp(ctk.CTk):
         self.entry_rounds.configure(state="disabled")
         self.entry_timer.configure(state="disabled")
         self.entry_rest.configure(state="disabled")
+        self.template_menu.configure(state="disabled")
+        self.btn_save_template.configure(state="disabled")
+        self.btn_delete_template.configure(state="disabled")
         self.switch_inc.configure(state="disabled")
         self.entry_inc_time.configure(state="disabled")
         self.entry_inc_int.configure(state="disabled")

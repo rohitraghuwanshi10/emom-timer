@@ -22,7 +22,7 @@ else:
     print("FAILURE: Max HR mismatch in memory.")
 
 # 4. Verify JSON file directly
-with open(storage.PROFILES_FILE, 'r') as f:
+with open(storage.get_profiles_file(), 'r') as f:
     data = json.load(f)
     saved_val = data["profiles"]["TestMaxHR"].get("max_hr")
     print(f"Saved Value in JSON: {saved_val}")
