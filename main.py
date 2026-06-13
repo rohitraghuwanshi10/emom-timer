@@ -126,6 +126,9 @@ class EMOMApp(ctk.CTk):
         
         # --- Heart Rate Variables ---
         self.hr_monitor = HeartRateMonitor(on_hr_update=self.on_hr_update, on_status_change=self.on_hr_status_change)
+        self.reconnect_attempts = 0
+        self.reconnect_job = None
+        self.expecting_disconnect = False
         self.current_hr = ctk.StringVar(value="--")
         self.hr_zone = ctk.StringVar(value="")
         self.current_hr = ctk.StringVar(value="--")
@@ -734,12 +737,20 @@ class EMOMApp(ctk.CTk):
             self.inc_frame.grid_remove()
 
     def toggle_hr_connection(self):
+        # Cancel any pending reconnect job
+        if self.reconnect_job:
+            self.after_cancel(self.reconnect_job)
+            self.reconnect_job = None
+        self.reconnect_attempts = 0
+
         if self.hr_monitor.is_connected:
+            self.expecting_disconnect = True
             self.hr_monitor.stop()
             self.btn_connect_hr.configure(text="Connect HR", fg_color=ACCENT_BLUE)
             self.current_hr.set("--")
             self.hr_zone.set("")
         else:
+            self.expecting_disconnect = False
             self.hr_monitor.start()
             self.btn_connect_hr.configure(text="Disconnect", fg_color=ACCENT_RED)
             
@@ -792,12 +803,40 @@ class EMOMApp(ctk.CTk):
         self.after(0, lambda: self._handle_hr_status(status))
 
     def _handle_hr_status(self, status):
-        self.hr_status.set(status)
-        
+        # Check if workout is active
+        is_workout_active = (self.workout is not None and 
+                             self.workout.state not in [WorkoutState.IDLE, WorkoutState.FINISHED])
+
         if status == "Disconnected":
-            self._on_monitor_disconnected()
-        elif status.endswith("Connected") and not status == "Disconnected":
+            if not self.expecting_disconnect and is_workout_active:
+                if self.reconnect_attempts < 2:
+                    self.reconnect_attempts += 1
+                    retry_status = f"Reconnecting (Attempt {self.reconnect_attempts}/2)..."
+                    self.hr_status.set(retry_status)
+                    
+                    # Schedule reconnection after a short delay
+                    if self.reconnect_job:
+                        self.after_cancel(self.reconnect_job)
+                    self.reconnect_job = self.after(2000, self.hr_monitor.start)
+                    return
+                else:
+                    self.hr_status.set("Reconnection Failed")
+                    self.reconnect_attempts = 0
+                    self._on_monitor_disconnected()
+            else:
+                self.reconnect_attempts = 0
+                self.hr_status.set(status)
+                self._on_monitor_disconnected()
+        elif status.endswith("Connected") and status != "Disconnected":
+            self.reconnect_attempts = 0
+            self.hr_status.set(status)
             self._on_monitor_connected()
+        else:
+            # For intermediate statuses like "Scanning...", "No HR Device Found", "Error..."
+            display_status = status
+            if self.reconnect_attempts > 0:
+                display_status = f"{status} (Retry {self.reconnect_attempts}/2)"
+            self.hr_status.set(display_status)
 
     def _on_monitor_disconnected(self):
         self.btn_connect_hr.configure(text="Connect HR", fg_color=ACCENT_BLUE)
