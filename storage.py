@@ -56,12 +56,6 @@ def set_base_dir(new_path):
     except Exception as e:
         print(f"Error saving config: {e}")
 
-# Module level exports for compatibility
-PROFILES_FILE = os.path.join(get_base_dir(), "profiles.json")
-
-def get_profiles_file():
-    return os.path.join(get_base_dir(), "profiles.json")
-
 def get_db_file():
     return os.path.join(get_base_dir(), "emom_timer.db")
 
@@ -340,30 +334,10 @@ def save_workout_to_db(profile_name, data, work_duration, rest_duration):
     finally:
         conn.close()
 
-# Kept for backward compatibility / emergency fallbacks
-def save_workout(row, profile_name="Default"):
-    print("Warning: save_workout is obsolete. Use save_workout_to_db.")
-    pass
-
-def save_workout_json(data, profile_name="Default"):
-    print("Warning: save_workout_json is obsolete. Use save_workout_to_db.")
-    return ""
-
-def load_workout_details_json(identifier):
+def load_workout_details(identifier):
     if not identifier: return {}
     
-    # Check if this is a legacy JSON filename
-    if str(identifier).endswith(".json"):
-        filepath = os.path.join(get_base_dir(), str(identifier))
-        if os.path.exists(filepath):
-            try:
-                with open(filepath, 'r') as f:
-                    return json.load(f)
-            except Exception as e:
-                print(f"Error loading legacy details file {identifier}: {e}")
-        return {}
-        
-    # Otherwise, query SQLite
+    # Query SQLite database for workout details
     conn = get_db_connection()
     try:
         c = conn.cursor()
@@ -448,7 +422,7 @@ def get_workouts_for_day(profile_name, start_time_str):
         """, (profile_name, date_str))
         rows = c.fetchall()
         for row in rows:
-            w_details = load_workout_details_json(row["id"])
+            w_details = load_workout_details(row["id"])
             if w_details:
                 day_workouts.append(w_details)
     except Exception as e:

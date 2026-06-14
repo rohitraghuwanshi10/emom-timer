@@ -241,7 +241,7 @@ class EMOMApp(ctk.CTk):
         if new_name and new_name.strip():
             clean_name = new_name.strip().replace("_", " ").title()
             if clean_name not in self.available_profiles:
-                # Save to JSON
+                # Save to database
                 storage.add_profile(clean_name)
                 
                 # Refresh list
@@ -887,7 +887,7 @@ class EMOMApp(ctk.CTk):
         if not workout_id: return
         
         # Load Data
-        data = storage.load_workout_details_json(workout_id)
+        data = storage.load_workout_details(workout_id)
         if not data:
             print("No details found for workout ID:", workout_id)
             return
@@ -1186,7 +1186,7 @@ class EMOMApp(ctk.CTk):
 
             current_profile = self.profile_var.get()
 
-            # JSON Save First to get filename
+            # Prepare workout details data
             
             # HR Stats
             hr_details = []

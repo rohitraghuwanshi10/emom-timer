@@ -7,6 +7,13 @@ def test_profile_fields():
     
     profile_name = "Test User"
     
+    # Clean up from previous runs to prevent test pollution
+    conn = storage.get_db_connection()
+    c = conn.cursor()
+    c.execute("DELETE FROM profiles WHERE name = ?", (profile_name,))
+    conn.commit()
+    conn.close()
+    
     # 1. Add Profile with new fields
     print(f"Creating profile '{profile_name}'...")
     storage.add_profile(profile_name, max_hr=190, max_prework_hr=120, 

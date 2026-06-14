@@ -5,6 +5,13 @@ import os
 print("--- Testing Storage ---")
 
 # 1. Add Profile
+# Clean up from previous runs to prevent test pollution
+conn = storage.get_db_connection()
+c = conn.cursor()
+c.execute("DELETE FROM profiles WHERE name = ?", ("TestMaxHR",))
+conn.commit()
+conn.close()
+
 storage.add_profile("TestMaxHR")
 print("Added profile TestMaxHR")
 
