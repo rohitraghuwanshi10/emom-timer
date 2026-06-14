@@ -80,39 +80,12 @@ class DetailsFrame(ctk.CTkFrame):
             except:
                 return "00:00:00"
 
-        # Load all workouts of the same day for this profile
+        # Load all workouts of the same day for this profile from SQLite
         day_workouts = []
         try:
             start_time_str = data.get("start_time", "")
-            if start_time_str:
-                selected_dt = datetime.datetime.fromisoformat(start_time_str)
-                selected_date = selected_dt.date()
-                
-                # Load history to find other files
-                history = storage.load_history(profile_name)
-                # Find column index for workout_details_file
-                if history:
-                    headers_hist = history[0]
-                    file_col_idx = -1
-                    if "workout_details_file" in headers_hist:
-                        file_col_idx = headers_hist.index("workout_details_file")
-                    elif "Details File" in headers_hist:
-                        file_col_idx = headers_hist.index("Details File")
-                    
-                    if file_col_idx != -1:
-                        # Scan through history
-                        for row in history[1:]:
-                            if len(row) > 0:
-                                try:
-                                    row_dt = datetime.datetime.fromisoformat(row[0])
-                                    if row_dt.date() == selected_date:
-                                        if file_col_idx < len(row):
-                                            fname = row[file_col_idx]
-                                            w_details = storage.load_workout_details_json(fname)
-                                            if w_details:
-                                                day_workouts.append(w_details)
-                                except Exception as ex:
-                                    print(f"Error reading row or details file: {ex}")
+            if start_time_str and profile_name:
+                day_workouts = storage.get_workouts_for_day(profile_name, start_time_str)
         except Exception as e:
             print(f"Error loading day workouts: {e}")
 

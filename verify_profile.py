@@ -33,12 +33,14 @@ def test_profile_fields():
     assert details["weight_unit_pref"] == "lbs"
     print("Update verified.")
     
-    # 3. Check JSON file directly
-    print("Checking JSON file content...")
-    with open(storage.PROFILES_FILE, 'r') as f:
-        data = json.load(f)
-        p = data["profiles"][profile_name]
-        print(json.dumps(p, indent=4))
+    # 3. Check DB directly
+    print("Checking DB profile content...")
+    conn = storage.get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT * FROM profiles WHERE name = ?", (profile_name,))
+    p = dict(c.fetchone())
+    print(p)
+    conn.close()
         
     print("\nSUCCESS: All storage tests passed.")
 

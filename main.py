@@ -726,9 +726,29 @@ class EMOMApp(ctk.CTk):
         btn_change = ctk.CTkButton(tab_general, text="Change Folder...", command=change_folder, fg_color=ACCENT_ORANGE)
         btn_change.pack(pady=10)
         
+        def export_history():
+            dest_file = ctk.filedialog.asksaveasfilename(
+                initialfile=f"{current_profile}_workout_history_export.csv",
+                defaultextension=".csv",
+                filetypes=[("CSV files", "*.csv")],
+                title="Export History to CSV"
+            )
+            if dest_file:
+                success = storage.export_to_csv(current_profile, dest_file)
+                if success:
+                    lbl_export_status.configure(text="History exported successfully!", text_color=ACCENT_GREEN)
+                else:
+                    lbl_export_status.configure(text="Failed to export history or no workouts found.", text_color=ACCENT_RED)
+                    
+        btn_export = ctk.CTkButton(tab_general, text="Export History to CSV...", command=export_history, fg_color=ACCENT_BLUE)
+        btn_export.pack(pady=(10, 0))
+        
+        lbl_export_status = ctk.CTkLabel(tab_general, text="", font=(FONT_FAMILY, 11))
+        lbl_export_status.pack(pady=(2, 10))
+        
         lbl_info = ctk.CTkLabel(tab_general, text="Note: Existing data is NOT moved automatically.\nYou must manually move files if needed.", 
                                 text_color=TEXT_SECONDARY, font=(FONT_FAMILY, 11), wraplength=300)
-        lbl_info.pack(pady=20)
+        lbl_info.pack(pady=10)
 
     def toggle_inc_options(self):
         if self.incremental_rest_var.get():
@@ -862,28 +882,20 @@ class EMOMApp(ctk.CTk):
              except Exception as e:
                  print(f"Error auto-enabling regulation: {e}")
     
-    def show_details(self, filename):
+    def show_details(self, workout_id):
         """Callback from history to show details tab."""
-        if not filename: return
+        if not workout_id: return
         
         # Load Data
-        data = storage.load_workout_details_json(filename)
+        data = storage.load_workout_details_json(workout_id)
         if not data:
-            print("No details found for file:", filename)
+            print("No details found for workout ID:", workout_id)
             return
-
-        # Get max HR from current profile for zones (or fallback)
+            
         profile_name = self.profile_var.get()
+        details = storage.get_profile_details(profile_name)
+        max_hr = details.get("max_hr") or 190
         
-        max_hr = 0
-        try:
-             # Fast read
-             with open(storage.PROFILES_FILE, 'r') as f:
-                 pdata = json.load(f)
-                 max_hr = pdata["profiles"].get(profile_name, {}).get("max_hr", 190)
-        except:
-             max_hr = 190
-
         self.details_frame.update_view(data, max_hr_profile=max_hr, profile_name=profile_name)
         
         # Switch Tab
@@ -1226,23 +1238,13 @@ class EMOMApp(ctk.CTk):
             except Exception as e:
                 print(f"Error calculating calories: {e}")
             
-            details_filename = storage.save_workout_json(json_data, current_profile)
-
-            # CSV Save
-            row = [
-                start_str,
-                end_time.isoformat(),
-                completed_rounds,
-                duration,
-                rest,
-                total_time,
-                notes,
-                details_filename
-            ]
+            # SQLite database save
+            configured_work = int(self.work_time_var.get())
+            rest_val = self.rest_time_var.get().strip()
+            configured_rest = int(rest_val) if rest_val else 0
+            storage.save_workout_to_db(current_profile, json_data, configured_work, configured_rest)
             
-            storage.save_workout(row, current_profile)
-            
-            print(f"History saved for {current_profile}")
+            print(f"History saved to SQLite DB for {current_profile}")
             
             # Refresh history tab logic
             if self.history_frame:
