@@ -5,6 +5,13 @@ import os
 print("--- Testing Storage ---")
 
 # 1. Add Profile
+# Clean up from previous runs to prevent test pollution
+conn = storage.get_db_connection()
+c = conn.cursor()
+c.execute("DELETE FROM profiles WHERE name = ?", ("TestMaxHR",))
+conn.commit()
+conn.close()
+
 storage.add_profile("TestMaxHR")
 print("Added profile TestMaxHR")
 
@@ -21,13 +28,20 @@ if details.get("max_hr") == 185:
 else:
     print("FAILURE: Max HR mismatch in memory.")
 
-# 4. Verify JSON file directly
-with open(storage.get_profiles_file(), 'r') as f:
-    data = json.load(f)
-    saved_val = data["profiles"]["TestMaxHR"].get("max_hr")
-    print(f"Saved Value in JSON: {saved_val}")
+# 4. Verify DB file directly
+conn = storage.get_db_connection()
+try:
+    c = conn.cursor()
+    c.execute("SELECT max_hr FROM profiles WHERE name = ?", ("TestMaxHR",))
+    row = c.fetchone()
+    saved_val = row["max_hr"] if row else None
+    print(f"Saved Value in DB: {saved_val}")
     
     if saved_val == 185:
-        print("SUCCESS: Max HR verified in JSON file.")
+        print("SUCCESS: Max HR verified in DB file.")
     else:
-        print("FAILURE: Max HR mismatch in JSON file.")
+        print("FAILURE: Max HR mismatch in DB file.")
+except Exception as e:
+    print(f"FAILURE: DB query failed: {e}")
+finally:
+    conn.close()

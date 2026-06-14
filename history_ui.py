@@ -99,15 +99,6 @@ class HistoryFrame(ctk.CTkFrame):
             "workout_details_file": "Details File"
         }
 
-        # Configure columns for better spacing
-        for i in range(len(headers)):
-            self.table_frame.grid_columnconfigure(i, weight=1)
-
-        for i, h in enumerate(headers):
-            title = header_map.get(h, h.replace('_', ' ').title())
-            lbl = ctk.CTkLabel(self.table_frame, text=title, font=("Arial", 13, "bold"), text_color="#8E8E93")
-            lbl.grid(row=0, column=i, padx=15, pady=10, sticky="ew")
-
         # Find filename index
         file_col_idx = -1
         if "workout_details_file" in headers:
@@ -115,44 +106,56 @@ class HistoryFrame(ctk.CTkFrame):
         elif "Details File" in headers:
              file_col_idx = headers.index("Details File")
 
+        # Configure columns for better spacing (excluding details file column)
+        col_count = 0
+        for i, h in enumerate(headers):
+            if i == file_col_idx:
+                continue
+            self.table_frame.grid_columnconfigure(col_count, weight=1)
+            col_count += 1
+
+        col_count = 0
+        for i, h in enumerate(headers):
+            if i == file_col_idx:
+                continue
+            title = header_map.get(h, h.replace('_', ' ').title())
+            lbl = ctk.CTkLabel(self.table_frame, text=title, font=("Arial", 13, "bold"), text_color="#8E8E93")
+            lbl.grid(row=0, column=col_count, padx=15, pady=10, sticky="ew")
+            col_count += 1
+
         # Data
         for r_idx, row in enumerate(data[1:], start=1):
-            # Alternate row colors for readablity (simulated with Frame if needed, but text color is enough for now)
             row_color = TEXT_COLOR
             
-            # Extract filename for this row
+            # Extract filename/ID for this row
             details_file = ""
             if file_col_idx != -1 and file_col_idx < len(row):
                 details_file = row[file_col_idx]
             
+            col_count = 0
             for c_idx, val in enumerate(row):
+                if c_idx == file_col_idx:
+                    continue
+                    
                 display_text = val
-                
-                # Format Dates (Index 0 & 1)
-                # Note: Assuming standardization, but using index logic for safety or name checking?
-                # Using hardcoded index fallback from original code for stability with old headers
-                # Ideally should map by name.
-                
                 header_name = headers[c_idx]
-                if header_name in ["start_time", "Start Time"] or header_name in ["end_time", "End Time"]:
-                     pass # handled below block in original code logic was by index 0/1
                 
                 if c_idx == 0 or c_idx == 1:
                     try:
                         dt = datetime.datetime.fromisoformat(val)
                         if c_idx == 0: # Start Time -> "Dec 06, 14:30"
                             display_text = dt.strftime("%b %d, %H:%M")
-                        else: # End Time -> "14:45" (Just time is usually enough if same day)
+                        else: # End Time -> "14:45"
                             display_text = dt.strftime("%H:%M")
                     except ValueError:
                         pass
                 
-                # Format Total Time (Index 5 usually)
                 elif header_name in ["total_time_sec", "Total Time", "total_time"]:
                     display_text = self._format_seconds(val)
                 
                 lbl = ctk.CTkLabel(self.table_frame, text=display_text, font=("Arial", 12), text_color=row_color)
-                lbl.grid(row=r_idx, column=c_idx, padx=15, pady=5, sticky="ew")
+                lbl.grid(row=r_idx, column=col_count, padx=15, pady=5, sticky="ew")
+                col_count += 1
                 
                 # Bind Click
                 if details_file and self.on_select_callback:
