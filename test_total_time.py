@@ -33,10 +33,12 @@ class TestTotalTime(unittest.TestCase):
         # T4: time_left=1. AcWork=4.
         # T5: time_left=1? -> transition. AcWork=5.
         
-        # The workout finishes after 1 round?
-        # If total_rounds = 1.
-        # Work -> Rest (if calculate_rest > 0 AND current < total).
-        # Since current (1) = total (1), it goes to Finish immediately after Work.
+        # In continuous workout mode, the workout transitions to REST state instead of auto-finishing.
+        self.assertEqual(workout.state, WorkoutState.REST)
+        
+        # Finish manually (simulating the STOP button click)
+        event = WorkoutEvent()
+        workout._finish(event)
         
         self.assertEqual(workout.state, WorkoutState.FINISHED)
         self.assertEqual(workout.total_actual_time, 5)
@@ -45,7 +47,7 @@ class TestTotalTime(unittest.TestCase):
         """Test time with incremental rest."""
         # 2 Rounds. Work 5. Rest 5.
         # Round 1: Work 5 -> Rest 5.
-        # Round 2: Work 5 -> Finish.
+        # Round 2: Work 5 -> REST (continuous mode keeps running).
         # Total: 5 + 5 + 5 = 15.
         
         workout = Workout(total_rounds=2, work_duration=5, rest_duration=5)
@@ -68,9 +70,13 @@ class TestTotalTime(unittest.TestCase):
         
         # R2 Work (5s)
         for _ in range(5): workout.tick()
-        self.assertEqual(workout.state, WorkoutState.FINISHED)
+        self.assertEqual(workout.state, WorkoutState.REST)
         self.assertEqual(workout.actual_work_time_sec, 10)
         
+        # Finish manually (simulating the STOP button click)
+        event = WorkoutEvent()
+        workout._finish(event)
+        self.assertEqual(workout.state, WorkoutState.FINISHED)
         self.assertEqual(workout.total_actual_time, 15)
 
     def test_auto_regulation_accumulation(self):

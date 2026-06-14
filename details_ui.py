@@ -63,11 +63,11 @@ class DetailsFrame(ctk.CTkFrame):
         # Parse Dates
         try:
             start_dt = datetime.datetime.fromisoformat(data.get("start_time", ""))
-            date_str = start_dt.strftime("%B %d, %Y at %I:%M %p")
+            date_str = start_dt.strftime("%B %d, %Y")
         except:
             date_str = "Unknown Date"
             
-        self.lbl_title.configure(text=f"Workout: {date_str}")
+        self.lbl_title.configure(text=f"Workouts for {date_str}")
         
         # Helper for formatting
         def fmt_sec(s):
@@ -79,34 +79,6 @@ class DetailsFrame(ctk.CTkFrame):
                 return f"{h:02}:{m:02}:{sec:02}"
             except:
                 return "00:00:00"
-
-        # Stats to show
-        stats = [
-            ("Rounds", str(data.get("total_rounds_completed", 0)), TEXT_COLOR),
-            ("Total Time", fmt_sec(data.get("total_time_sec", 0)), TEXT_COLOR),
-            ("Work Time", fmt_sec(data.get("work_time_sec", 0)), ACCENT_GREEN),
-            ("Rest Time", fmt_sec(data.get("rest_time_sec", 0)), ACCENT_ORANGE),
-            ("Peak HR", f"{data.get('max_hr', 0)} BPM", ACCENT_RED),
-            ("Avg HR", f"{data.get('avg_hr', 0)} BPM", ACCENT_BLUE),
-            ("Calories", f"{data.get('calories_burnt_kcal', 0)} kcal", ACCENT_PURPLE),
-        ]
-        
-        # Row 1
-        for i, (title, val, col) in enumerate(stats[:4]):
-             var = ctk.StringVar(value=val)
-             self._create_stat_card(self.stats_frame, 0, i, title, var, col)
-             
-        # Row 2 (HR)
-        if data.get("max_hr", 0) > 0:
-             for i, (title, val, col) in enumerate(stats[4:]):
-                 var = ctk.StringVar(value=val)
-                 self._create_stat_card(self.stats_frame, 1, i, title, var, col)
-                 
-        # Notes
-        notes = data.get("workout_notes", "")
-        if notes:
-            lbl = ctk.CTkLabel(self.stats_frame, text=f"Notes: {notes}", font=("Arial", 14), text_color=TEXT_SECONDARY)
-            lbl.grid(row=2, column=0, columnspan=4, pady=10)
 
         # Load all workouts of the same day for this profile
         day_workouts = []
@@ -120,12 +92,12 @@ class DetailsFrame(ctk.CTkFrame):
                 history = storage.load_history(profile_name)
                 # Find column index for workout_details_file
                 if history:
-                    headers = history[0]
+                    headers_hist = history[0]
                     file_col_idx = -1
-                    if "workout_details_file" in headers:
-                        file_col_idx = headers.index("workout_details_file")
-                    elif "Details File" in headers:
-                        file_col_idx = headers.index("Details File")
+                    if "workout_details_file" in headers_hist:
+                        file_col_idx = headers_hist.index("workout_details_file")
+                    elif "Details File" in headers_hist:
+                        file_col_idx = headers_hist.index("Details File")
                     
                     if file_col_idx != -1:
                         # Scan through history
@@ -150,6 +122,97 @@ class DetailsFrame(ctk.CTkFrame):
 
         # Sort day_workouts by start_time
         day_workouts.sort(key=lambda w: w.get("start_time", ""))
+
+        # Configure self.stats_frame to stretch row frames horizontally
+        self.stats_frame.grid_columnconfigure(0, weight=1)
+
+        # Table Headers
+        headers = ["Workout", "Start Time", "Rounds", "Total Time", "Work Time", "Rest Time", "Peak HR (BPM)", "Avg HR (BPM)", "Calories (kcal)", "Notes"]
+        
+        # Header Row Frame
+        header_frame = ctk.CTkFrame(self.stats_frame, fg_color="transparent")
+        header_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 5))
+        for c_idx in range(len(headers)):
+            header_frame.grid_columnconfigure(c_idx, weight=3 if c_idx == 9 else 1, uniform="col_group")
+
+        # Render Headers
+        for col_idx, header in enumerate(headers):
+            sticky = "w" if col_idx == 9 or col_idx == 0 else ""
+            lbl = ctk.CTkLabel(header_frame, text=header, font=("Arial", 12, "bold"), text_color=TEXT_SECONDARY)
+            if sticky:
+                lbl.grid(row=0, column=col_idx, padx=10, pady=2, sticky=sticky)
+            else:
+                lbl.grid(row=0, column=col_idx, padx=10, pady=2)
+
+        # Render Rows
+        for row_idx, w_data in enumerate(day_workouts, start=1):
+            color = ACCENT_COLORS[(row_idx - 1) % len(ACCENT_COLORS)]
+            
+            # Row Background Frame
+            row_frame = ctk.CTkFrame(self.stats_frame, fg_color="transparent", corner_radius=8)
+            row_frame.grid(row=row_idx, column=0, sticky="ew", padx=5, pady=2)
+            
+            # Configure columns of the row frame
+            for c_idx in range(len(headers)):
+                row_frame.grid_columnconfigure(c_idx, weight=3 if c_idx == 9 else 1, uniform="col_group")
+                
+            # 1. Workout Name
+            wo_text = f"WO {row_idx}"
+            lbl = ctk.CTkLabel(row_frame, text=wo_text, font=("Arial", 12, "bold"), text_color=color)
+            lbl.grid(row=0, column=0, padx=10, pady=6, sticky="w")
+            
+            # Parse Start Time
+            try:
+                start_dt_row = datetime.datetime.fromisoformat(w_data.get("start_time", ""))
+                start_time_val = start_dt_row.strftime("%I:%M %p")
+            except:
+                start_time_val = "--"
+
+            # Helper for empty values
+            def fmt_hr(val):
+                return str(val) if val and int(val) > 0 else "--"
+                
+            def fmt_cal(val):
+                return str(val) if val and float(val) > 0 else "--"
+
+            # Row values mapping
+            row_vals = [
+                start_time_val,
+                str(w_data.get("total_rounds_completed", 0)),
+                fmt_sec(w_data.get("total_time_sec", 0)),
+                fmt_sec(w_data.get("work_time_sec", 0)),
+                fmt_sec(w_data.get("rest_time_sec", 0)),
+                fmt_hr(w_data.get("max_hr", 0)),
+                fmt_hr(w_data.get("avg_hr", 0)),
+                fmt_cal(w_data.get("calories_burnt_kcal", 0)),
+                w_data.get("workout_notes", "")
+            ]
+            
+            for c_idx, val in enumerate(row_vals, start=1):
+                sticky = "w" if c_idx == 9 else ""
+                
+                # Apply vibrant accent colors to all rows as requested
+                val_color = TEXT_COLOR
+                if c_idx in [1, 2, 3]: # Start Time, Rounds, or Total Time
+                    val_color = TEXT_COLOR
+                elif c_idx == 4: # Work Time
+                    val_color = ACCENT_GREEN
+                elif c_idx == 5: # Rest Time
+                    val_color = ACCENT_ORANGE
+                elif c_idx == 6: # Peak HR
+                    val_color = ACCENT_RED
+                elif c_idx == 7: # Avg HR
+                    val_color = ACCENT_BLUE
+                elif c_idx == 8: # Calories
+                    val_color = ACCENT_PURPLE
+                elif c_idx == 9: # Notes
+                    val_color = TEXT_SECONDARY
+                
+                lbl = ctk.CTkLabel(row_frame, text=str(val), font=("Arial", 12), text_color=val_color)
+                if sticky:
+                    lbl.grid(row=0, column=c_idx, padx=10, pady=6, sticky=sticky)
+                else:
+                    lbl.grid(row=0, column=c_idx, padx=10, pady=6)
 
         # Graph
         self._render_graph(day_workouts, max_hr_profile, selected_start_time=data.get("start_time"))
@@ -232,16 +295,12 @@ class DetailsFrame(ctk.CTkFrame):
             # Determine color from ACCENT_COLORS Nord palette (consistent with history_ui.py)
             color = ACCENT_COLORS[idx % len(ACCENT_COLORS)]
             
-            is_selected = (w_data.get("start_time") == selected_start_time)
-            
             # Label
             lbl_text = f"WO {idx+1}"
-            if is_selected:
-                lbl_text += " (Selected)"
                 
             # Plot line and fill
-            # Selected workout line is slightly thicker
-            linewidth = 3 if is_selected else 1.8
+            # Thinner graph lines (linewidth=1.0) for cleaner display
+            linewidth = 1.0
             ax.plot(times, bpms, color=color, linewidth=linewidth, label=lbl_text)
             ax.fill_between(times, bpms, 40, color=color, alpha=0.1)
             
@@ -253,12 +312,9 @@ class DetailsFrame(ctk.CTkFrame):
             mid_time = (times[0] + times[-1]) / 2.0
             y_pos = 0.95
             
-            # Add a subtle background box or highlight to the selected text label to make it pop
             transform = mtransforms.blended_transform_factory(ax.transData, ax.transAxes)
-            bbox_dict = dict(boxstyle="round,pad=0.2", fc="#2C2C2E", ec=color, alpha=0.9, lw=1) if is_selected else None
-            fontweight = "bold" if is_selected else "normal"
             ax.text(mid_time, y_pos, f"WO {idx+1}", color=color, fontsize=9, ha="center", va="top", 
-                    fontweight=fontweight, transform=transform, bbox=bbox_dict)
+                    fontweight="normal", transform=transform)
             
             # Record points for axis scaling
             all_plotted_times.extend(times)
@@ -286,11 +342,6 @@ class DetailsFrame(ctk.CTkFrame):
         ax.spines['bottom'].set_color("#333333")
         ax.tick_params(colors=TEXT_SECONDARY)
         
-        # Add a subtle legend if there are multiple workouts
-        handles, labels = ax.get_legend_handles_labels()
-        if len(labels) > 1:
-            ax.legend(handles, labels, loc="upper right", frameon=False, fontsize=8, labelcolor=TEXT_SECONDARY)
-            
         # Ensure labels are visible
         fig.tight_layout()
         
