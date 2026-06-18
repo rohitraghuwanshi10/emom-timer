@@ -221,6 +221,9 @@ class EMOMApp(ctk.CTk):
             self.history_frame.refresh(choice)
             
         self.load_templates()
+
+        if hasattr(self, 'lbl_active_profile') and self.lbl_active_profile:
+            self.lbl_active_profile.configure(text=f"PROFILE: {choice.upper()}")
             
         # Update Auto-Regulation if HR connected
         if hasattr(self, 'hr_monitor') and self.hr_monitor.is_connected: # Check connection
@@ -459,20 +462,24 @@ class EMOMApp(ctk.CTk):
         self.display_frame.grid_columnconfigure(0, weight=1)
         self.display_frame.grid_columnconfigure(1, weight=1)
         
-        # Row 0: Header (Rounds | Status)
+        # Row 0: Active Profile Name
+        self.lbl_active_profile = ctk.CTkLabel(self.display_frame, text="PROFILE: DEFAULT", font=(FONT_FAMILY, 14, "bold"), text_color=TEXT_SECONDARY)
+        self.lbl_active_profile.grid(row=0, column=0, columnspan=2, sticky="w", padx=20, pady=(15, 0))
+
+        # Row 1: Header (Rounds | Status)
         self.lbl_current_round = ctk.CTkLabel(self.display_frame, text="ROUND 0 / 0", font=(FONT_FAMILY, 40, "bold"), text_color=TEXT_COLOR)
-        self.lbl_current_round.grid(row=0, column=0, sticky="w", padx=20, pady=(15, 0))
+        self.lbl_current_round.grid(row=1, column=0, sticky="w", padx=20, pady=(5, 0))
 
         self.lbl_status = ctk.CTkLabel(self.display_frame, text="READY", font=(FONT_FAMILY, 24, "bold"), text_color=ACCENT_BLUE)
-        self.lbl_status.grid(row=0, column=1, sticky="e", padx=20, pady=(15, 0))
+        self.lbl_status.grid(row=1, column=1, sticky="e", padx=20, pady=(5, 0))
 
-        # Row 1: Main Timer
+        # Row 2: Main Timer
         self.lbl_main_timer = ctk.CTkLabel(self.display_frame, text="00:00", font=(FONT_FAMILY, 120, "bold"), text_color=TEXT_COLOR)
-        self.lbl_main_timer.grid(row=1, column=0, columnspan=2, pady=(10, 10))
+        self.lbl_main_timer.grid(row=2, column=0, columnspan=2, pady=(10, 10))
 
-        # Row 2: Heart Rate Display
+        # Row 3: Heart Rate Display
         self.hr_frame = ctk.CTkFrame(self.display_frame, fg_color="transparent")
-        self.hr_frame.grid(row=2, column=0, columnspan=2, sticky="n", pady=(0, 20))
+        self.hr_frame.grid(row=3, column=0, columnspan=2, sticky="n", pady=(0, 20))
         
         self.lbl_hr_icon = ctk.CTkLabel(self.hr_frame, text="♥", font=(FONT_FAMILY, 50), text_color=ACCENT_RED)
         self.lbl_hr_icon.pack(side="left", padx=(0, 10))

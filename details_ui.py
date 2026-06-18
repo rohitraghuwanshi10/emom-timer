@@ -31,9 +31,21 @@ class DetailsFrame(ctk.CTkFrame):
         self.grid_rowconfigure(1, weight=0) # Stats
         self.grid_rowconfigure(2, weight=1) # Graph
         
-        # 1. Header (Date/Title)
-        self.lbl_title = ctk.CTkLabel(self, text="Workout Details", font=("Arial", 24, "bold"), text_color=TEXT_COLOR)
-        self.lbl_title.grid(row=0, column=0, padx=20, pady=(20, 10), sticky="w")
+        # 1. Header (Date/Title + Export Button)
+        self.header_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.header_frame.grid(row=0, column=0, padx=20, pady=(20, 10), sticky="ew")
+        
+        self.lbl_title = ctk.CTkLabel(self.header_frame, text="Workout Details", font=("Arial", 24, "bold"), text_color=TEXT_COLOR)
+        self.lbl_title.pack(side="left")
+        
+        self.btn_export = ctk.CTkButton(self.header_frame, text="📤 Export Day to CSV", command=self.export_day_csv,
+                                        fg_color=ACCENT_BLUE, hover_color="#0060df", height=30, corner_radius=15,
+                                        font=("Arial", 12, "bold"), state="disabled")
+        self.btn_export.pack(side="right")
+        
+        self.current_day_workouts = []
+        self.current_profile_name = "Default"
+        self.current_date_str = ""
         
         # 2. Stats Grid
         self.stats_frame = ctk.CTkFrame(self, fg_color=CARD_COLOR, corner_radius=15)
@@ -95,6 +107,11 @@ class DetailsFrame(ctk.CTkFrame):
 
         # Sort day_workouts by start_time
         day_workouts.sort(key=lambda w: w.get("start_time", ""))
+
+        self.current_day_workouts = day_workouts
+        self.current_profile_name = profile_name
+        self.current_date_str = date_str
+        self.btn_export.configure(state="normal")
 
         # Configure self.stats_frame to stretch row frames horizontally
         self.stats_frame.grid_columnconfigure(0, weight=1)
@@ -321,3 +338,68 @@ class DetailsFrame(ctk.CTkFrame):
         canvas = FigureCanvasTkAgg(fig, master=self.graph_container)
         canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)
+
+    def export_day_csv(self):
+        if not hasattr(self, 'current_day_workouts') or not self.current_day_workouts:
+            print("No workouts to export.")
+            return
+            
+        # Open file save dialog
+        default_filename = f"{self.current_profile_name}_{self.current_date_str.replace(' ', '_').replace(',', '')}_workouts.csv"
+        dest_file = ctk.filedialog.asksaveasfilename(
+            initialfile=default_filename,
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv")],
+            title="Export Day's Workouts to CSV"
+        )
+        
+        if not dest_file:
+            return
+            
+        try:
+            import csv
+            
+            def fmt_sec(s):
+                try:
+                    s = int(float(s))
+                    h = s // 3600
+                    m = (s % 3600) // 60
+                    sec = s % 60
+                    return f"{h:02}:{m:02}:{sec:02}"
+                except:
+                    return "00:00:00"
+
+            def fmt_hr(val):
+                return str(val) if val and int(val) > 0 else "--"
+                
+            def fmt_cal(val):
+                return str(val) if val and float(val) > 0 else "--"
+
+            with open(dest_file, mode='w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                # Headers matching the details table
+                writer.writerow(["Workout", "Start Time", "Rounds", "Total Time", "Work Time", "Rest Time", "Peak HR (BPM)", "Avg HR (BPM)", "Calories (kcal)", "Notes"])
+                
+                for idx, w_data in enumerate(self.current_day_workouts, start=1):
+                    # Parse Start Time
+                    try:
+                        start_dt_row = datetime.datetime.fromisoformat(w_data.get("start_time", ""))
+                        start_time_val = start_dt_row.strftime("%I:%M %p")
+                    except:
+                        start_time_val = "--"
+                        
+                    writer.writerow([
+                        f"WO {idx}",
+                        start_time_val,
+                        str(w_data.get("total_rounds_completed", 0)),
+                        fmt_sec(w_data.get("total_time_sec", 0)),
+                        fmt_sec(w_data.get("work_time_sec", 0)),
+                        fmt_sec(w_data.get("rest_time_sec", 0)),
+                        fmt_hr(w_data.get("max_hr", 0)),
+                        fmt_hr(w_data.get("avg_hr", 0)),
+                        fmt_cal(w_data.get("calories_burnt_kcal", 0)),
+                        w_data.get("workout_notes", "")
+                    ])
+            print(f"Exported day's workouts to {dest_file}")
+        except Exception as e:
+            print(f"Error exporting day's workouts to CSV: {e}")
