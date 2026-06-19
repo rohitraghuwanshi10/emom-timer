@@ -73,7 +73,7 @@ class EMOMApp(ctk.CTk):
         super().__init__()
 
         # --- Window Setup ---
-        self.title("EMOM Workout Timer")
+        self.title("ChronoPulse Active")
         self.geometry("800x900") # Detailed History View + Inc Rest
         self.configure(fg_color=BG_COLOR)
         self.resizable(True, True)
