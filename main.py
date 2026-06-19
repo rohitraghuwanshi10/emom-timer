@@ -1253,6 +1253,14 @@ class EMOMApp(ctk.CTk):
             
             print(f"History saved to SQLite DB for {current_profile}")
             
+            # Trigger background sync to Firestore
+            try:
+                import threading
+                import sync_client
+                threading.Thread(target=sync_client.run_sync, daemon=True).start()
+            except Exception as se:
+                print(f"Error triggering background sync: {se}")
+            
             # Refresh history tab logic
             if self.history_frame:
                 self.history_frame.refresh(current_profile)
@@ -1269,5 +1277,13 @@ class EMOMApp(ctk.CTk):
              return 0
 
 if __name__ == "__main__":
+    # Start background sync on startup
+    try:
+        import threading
+        import sync_client
+        threading.Thread(target=sync_client.run_sync, daemon=True).start()
+    except Exception as se:
+        print(f"Error triggering background sync on startup: {se}")
+
     app = EMOMApp()
     app.mainloop()
