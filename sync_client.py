@@ -13,6 +13,7 @@ def run_sync():
     candidates = [
         os.path.join(storage.get_base_dir(), "service-account.json"),
         os.path.join(os.getcwd(), "service-account.json"),
+        os.path.expanduser("~/Documents/EMOM Timer/service-account.json"),
         os.path.expanduser("~/.emom_timer_service_account.json")
     ]
     for c in candidates:

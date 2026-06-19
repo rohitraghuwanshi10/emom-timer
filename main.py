@@ -145,12 +145,37 @@ class EMOMApp(ctk.CTk):
         self._create_widgets()
         self.load_profiles()
         
-        # Clean up on exit
-        # Clean up on exit
         self.protocol("WM_DELETE_WINDOW", self.on_close)
         
         # Shortcuts
         self.bind("<space>", self.on_space_pressed)
+
+        # Start background sync with UI refresh callback
+        self.trigger_startup_sync()
+
+    def trigger_startup_sync(self):
+        def run_sync_and_refresh():
+            try:
+                import sync_client
+                success = sync_client.run_sync()
+                if success:
+                    self.after(100, self._refresh_after_sync)
+            except Exception as e:
+                print(f"Error in background sync: {e}")
+
+        import threading
+        threading.Thread(target=run_sync_and_refresh, daemon=True).start()
+
+    def _refresh_after_sync(self):
+        try:
+            print("Sync complete. Refreshing profiles and history UI.")
+            old_profile = self.profile_var.get()
+            self.load_profiles()
+            self.profile_var.set(old_profile)
+            if self.history_frame:
+                self.history_frame.refresh(old_profile)
+        except Exception as e:
+            print(f"Error refreshing UI: {e}")
 
     def on_space_pressed(self, event=None):
         if self._is_typing_active():
@@ -1277,13 +1302,5 @@ class EMOMApp(ctk.CTk):
              return 0
 
 if __name__ == "__main__":
-    # Start background sync on startup
-    try:
-        import threading
-        import sync_client
-        threading.Thread(target=sync_client.run_sync, daemon=True).start()
-    except Exception as se:
-        print(f"Error triggering background sync on startup: {se}")
-
     app = EMOMApp()
     app.mainloop()
