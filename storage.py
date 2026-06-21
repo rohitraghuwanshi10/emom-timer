@@ -65,10 +65,9 @@ def _ensure_dir():
         os.makedirs(base)
 
 # Database initialization
-_DB_INITIALIZED = False
+_INITIALIZED_DBS = set()
 
 def get_db_connection():
-    global _DB_INITIALIZED
     db_file = get_db_file()
     _ensure_dir()
     conn = sqlite3.connect(db_file)
@@ -76,8 +75,8 @@ def get_db_connection():
     conn.execute("PRAGMA foreign_keys=ON")
     conn.row_factory = sqlite3.Row
     
-    if not _DB_INITIALIZED:
-        _DB_INITIALIZED = True
+    if db_file not in _INITIALIZED_DBS:
+        _INITIALIZED_DBS.add(db_file)
         _init_db_with_connection(conn)
         
     return conn
@@ -352,6 +351,7 @@ def load_workout_details(identifier):
         logs = [dict(log) for log in c.fetchall()]
         
         data = {
+            "id": workout["id"],
             "profile_name": workout["profile_name"],
             "start_time": workout["start_time"],
             "end_time": workout["end_time"],
@@ -504,3 +504,16 @@ def export_to_csv(profile_name, destination_path):
     except Exception as e:
         print(f"Error exporting CSV: {e}")
         return False
+
+def update_workout_notes(workout_id, notes):
+    conn = get_db_connection()
+    try:
+        c = conn.cursor()
+        c.execute("UPDATE workouts SET notes = ? WHERE id = ?", (notes, workout_id))
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error updating workout notes in DB: {e}")
+        return False
+    finally:
+        conn.close()

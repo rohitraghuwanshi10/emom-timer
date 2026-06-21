@@ -68,6 +68,53 @@ class ToolTip:
             self.tooltip_window.destroy()
             self.tooltip_window = None
 
+class SaveTemplateDialog(ctk.CTkToplevel):
+    def __init__(self, parent, default_name, on_save):
+        super().__init__(parent)
+        self.title("Save Template")
+        self.geometry("380x180")
+        self.resizable(False, False)
+        self.configure(fg_color="#1C1C1E")
+        
+        # Make modal
+        self.transient(parent.winfo_toplevel())
+        self.grab_set()
+        
+        # Center relative to parent
+        self.update_idletasks()
+        parent_x = parent.winfo_rootx()
+        parent_y = parent.winfo_rooty()
+        parent_w = parent.winfo_width()
+        parent_h = parent.winfo_height()
+        x = parent_x + (parent_w - 380) // 2
+        y = parent_y + (parent_h - 180) // 2
+        self.geometry(f"+{x}+{y}")
+        
+        lbl_title = ctk.CTkLabel(self, text="Save Template", font=("Arial", 16, "bold"), text_color="#FFFFFF")
+        lbl_title.pack(pady=(15, 10))
+        
+        self.entry = ctk.CTkEntry(self, width=320, fg_color="#000000", text_color="#FFFFFF", corner_radius=8)
+        self.entry.pack(pady=(5, 15))
+        if default_name:
+            self.entry.insert(0, default_name)
+            self.entry.select_range(0, 'end')
+            self.entry.focus()
+            
+        btn_frame = ctk.CTkFrame(self, fg_color="transparent")
+        btn_frame.pack(fill="x", padx=20, pady=10)
+        
+        btn_cancel = ctk.CTkButton(btn_frame, text="Cancel", fg_color="#3A3A3C", hover_color="#2C2C2E", width=100, height=32, corner_radius=16, command=self.destroy)
+        btn_cancel.pack(side="left", padx=(20, 0))
+        
+        def save_clicked():
+            name = self.entry.get().strip()
+            if name:
+                on_save(name)
+            self.destroy()
+            
+        btn_save = ctk.CTkButton(btn_frame, text="Save", fg_color="#0A84FF", hover_color="#0060df", width=100, height=32, corner_radius=16, command=save_clicked)
+        btn_save.pack(side="right", padx=(0, 20))
+
 class EMOMApp(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -292,9 +339,13 @@ class EMOMApp(ctk.CTk):
             
         self.template_menu.configure(values=values)
         self.template_var.set("Select Template...")
+        if hasattr(self, 'lbl_active_template') and self.lbl_active_template:
+            self.lbl_active_template.configure(text="")
 
     def select_template(self, choice):
         if choice == "Select Template...":
+            if hasattr(self, 'lbl_active_template') and self.lbl_active_template:
+                self.lbl_active_template.configure(text="")
             return
             
         current_profile = self.profile_var.get()
@@ -306,17 +357,19 @@ class EMOMApp(ctk.CTk):
             self.work_time_var.set(str(template.get("work_time", 60)))
             self.rest_time_var.set(str(template.get("rest_time", 0)))
             self.notes_var.set(template.get("notes", ""))
+            if hasattr(self, 'lbl_active_template') and self.lbl_active_template:
+                self.lbl_active_template.configure(text=f"TEMPLATE: {choice.upper()}")
             print(f"Loaded template '{choice}': rounds={template.get('rounds')}, work={template.get('work_time')}, rest={template.get('rest_time')}")
 
     def save_template_click(self):
         current_profile = self.profile_var.get()
-        
-        dialog = ctk.CTkInputDialog(text="Enter Template Name:", title="Save Template")
-        template_name = dialog.get_input()
-        
-        if template_name and template_name.strip():
-            clean_name = template_name.strip()
+        selected_temp = self.template_var.get()
+        default_name = ""
+        if selected_temp and selected_temp != "Select Template...":
+            default_name = selected_temp
             
+        def on_save(template_name):
+            clean_name = template_name.strip()
             try:
                 rounds = int(self.total_rounds_var.get())
                 work_time = int(self.work_time_var.get())
@@ -329,7 +382,11 @@ class EMOMApp(ctk.CTk):
             storage.save_template(current_profile, clean_name, rounds, work_time, rest_time, notes)
             self.load_templates()
             self.template_var.set(clean_name)
+            if hasattr(self, 'lbl_active_template') and self.lbl_active_template:
+                self.lbl_active_template.configure(text=f"TEMPLATE: {clean_name.upper()}")
             print(f"Saved and selected template: {clean_name}")
+
+        SaveTemplateDialog(self, default_name, on_save)
 
     def delete_template_click(self):
         current_profile = self.profile_var.get()
@@ -489,7 +546,10 @@ class EMOMApp(ctk.CTk):
         
         # Row 0: Active Profile Name
         self.lbl_active_profile = ctk.CTkLabel(self.display_frame, text="PROFILE: DEFAULT", font=(FONT_FAMILY, 14, "bold"), text_color=TEXT_SECONDARY)
-        self.lbl_active_profile.grid(row=0, column=0, columnspan=2, sticky="w", padx=20, pady=(15, 0))
+        self.lbl_active_profile.grid(row=0, column=0, sticky="w", padx=20, pady=(15, 0))
+
+        self.lbl_active_template = ctk.CTkLabel(self.display_frame, text="", font=(FONT_FAMILY, 14, "bold"), text_color=ACCENT_BLUE)
+        self.lbl_active_template.grid(row=0, column=1, sticky="e", padx=20, pady=(15, 0))
 
         # Row 1: Header (Rounds | Status)
         self.lbl_current_round = ctk.CTkLabel(self.display_frame, text="ROUND 0 / 0", font=(FONT_FAMILY, 40, "bold"), text_color=TEXT_COLOR)

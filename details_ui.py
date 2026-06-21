@@ -20,6 +20,52 @@ ACCENT_PURPLE = "#BF5AF2"
 # Nord Palette for Workouts (consistent with history_ui.py)
 ACCENT_COLORS = ["#5E81AC", "#88C0D0", "#A3BE8C", "#EBCB8B", "#D08770", "#B48EAD"]
 
+class EditNotesDialog(ctk.CTkToplevel):
+    def __init__(self, parent, current_notes, on_save):
+        super().__init__(parent)
+        self.title("Edit Workout Notes")
+        self.geometry("400x250")
+        self.resizable(False, False)
+        self.configure(fg_color=CARD_COLOR)
+        
+        # Make modal
+        self.transient(parent.winfo_toplevel())
+        self.grab_set()
+        
+        # Center the window relative to parent
+        self.update_idletasks()
+        parent_x = parent.winfo_rootx()
+        parent_y = parent.winfo_rooty()
+        parent_w = parent.winfo_width()
+        parent_h = parent.winfo_height()
+        x = parent_x + (parent_w - 400) // 2
+        y = parent_y + (parent_h - 250) // 2
+        self.geometry(f"+{x}+{y}")
+        
+        # Title Label
+        lbl_title = ctk.CTkLabel(self, text="Edit Workout Notes", font=("Arial", 16, "bold"), text_color=TEXT_COLOR)
+        lbl_title.pack(pady=(15, 10))
+        
+        # TextBox for multi-line notes
+        self.textbox = ctk.CTkTextbox(self, width=360, height=120, fg_color=BG_COLOR, text_color=TEXT_COLOR, corner_radius=10)
+        self.textbox.pack(padx=20, pady=5)
+        self.textbox.insert("1.0", current_notes)
+        
+        # Buttons Frame
+        btn_frame = ctk.CTkFrame(self, fg_color="transparent")
+        btn_frame.pack(fill="x", padx=20, pady=15)
+        
+        btn_cancel = ctk.CTkButton(btn_frame, text="Cancel", fg_color="#555555", hover_color="#444444", width=100, height=30, corner_radius=15, command=self.destroy)
+        btn_cancel.pack(side="left", padx=(40, 10))
+        
+        def save_clicked():
+            new_notes = self.textbox.get("1.0", "end-1c").strip()
+            on_save(new_notes)
+            self.destroy()
+            
+        btn_save = ctk.CTkButton(btn_frame, text="Save", fg_color=ACCENT_BLUE, hover_color="#0060df", width=100, height=30, corner_radius=15, command=save_clicked)
+        btn_save.pack(side="right", padx=(10, 40))
+
 class DetailsFrame(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
@@ -198,11 +244,32 @@ class DetailsFrame(ctk.CTkFrame):
                 elif c_idx == 9: # Notes
                     val_color = TEXT_SECONDARY
                 
-                lbl = ctk.CTkLabel(row_frame, text=str(val), font=("Arial", 12), text_color=val_color)
-                if sticky:
-                    lbl.grid(row=0, column=c_idx, padx=10, pady=6, sticky=sticky)
+                if c_idx == 9:
+                    # Notes: text + edit button frame
+                    notes_frame = ctk.CTkFrame(row_frame, fg_color="transparent")
+                    if sticky:
+                        notes_frame.grid(row=0, column=c_idx, padx=10, pady=2, sticky=sticky)
+                    else:
+                        notes_frame.grid(row=0, column=c_idx, padx=10, pady=2)
+                        
+                    notes_txt = str(val) if val else "Add notes..."
+                    if len(notes_txt) > 25:
+                        notes_txt = notes_txt[:22] + "..."
+                        
+                    lbl = ctk.CTkLabel(notes_frame, text=notes_txt, font=("Arial", 12), text_color=val_color)
+                    lbl.pack(side="left")
+                    
+                    w_id = w_data.get("id")
+                    if w_id:
+                        btn_edit = ctk.CTkLabel(notes_frame, text=" ✏️", font=("Arial", 10), text_color=ACCENT_BLUE, cursor="hand2")
+                        btn_edit.pack(side="left", padx=5)
+                        btn_edit.bind("<Button-1>", lambda event, wid=w_id, wdata=w_data: self.edit_notes_dialog(wid, wdata))
                 else:
-                    lbl.grid(row=0, column=c_idx, padx=10, pady=6)
+                    lbl = ctk.CTkLabel(row_frame, text=str(val), font=("Arial", 12), text_color=val_color)
+                    if sticky:
+                        lbl.grid(row=0, column=c_idx, padx=10, pady=6, sticky=sticky)
+                    else:
+                        lbl.grid(row=0, column=c_idx, padx=10, pady=6)
 
         # Graph
         self._render_graph(day_workouts, max_hr_profile, selected_start_time=data.get("start_time"))
@@ -403,3 +470,31 @@ class DetailsFrame(ctk.CTkFrame):
             print(f"Exported day's workouts to {dest_file}")
         except Exception as e:
             print(f"Error exporting day's workouts to CSV: {e}")
+
+    def edit_notes_dialog(self, w_id, w_data):
+        if not w_id:
+            return
+            
+        current_notes = w_data.get("workout_notes", "")
+        
+        def save_callback(new_notes):
+            # 1. Update SQLite
+            success = storage.update_workout_notes(w_id, new_notes)
+            if success:
+                # 2. Trigger sync in background thread
+                import threading
+                import sync_client
+                threading.Thread(target=sync_client.run_sync, daemon=True).start()
+                
+                # 3. Reload view
+                try:
+                    p_details = storage.get_profile_details(self.current_profile_name)
+                    max_hr = p_details.get("max_hr") or 190
+                except:
+                    max_hr = 190
+                    
+                w_data["workout_notes"] = new_notes
+                self.update_view(w_data, max_hr_profile=max_hr, profile_name=self.current_profile_name)
+                
+        # Open custom edit dialog
+        EditNotesDialog(self, current_notes, save_callback)

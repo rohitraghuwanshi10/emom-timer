@@ -162,9 +162,10 @@ def run_sync():
         local_workouts = [dict(row) for row in c.fetchall()]
         
         remote_workouts = db_firestore.collection("workouts").get()
-        remote_doc_ids = {doc.id for doc in remote_workouts}
+        remote_workouts_map = {doc.id: doc.to_dict() for doc in remote_workouts}
+        remote_doc_ids = set(remote_workouts_map.keys())
         
-        # Upload local workouts that are missing in Firestore
+        # Upload local workouts that are missing in Firestore or have updated notes
         for w in local_workouts:
             p_name = w["profile_name"]
             s_time = w["start_time"]
@@ -193,16 +194,26 @@ def run_sync():
                     "hr_details": hr_logs
                 })
                 remote_doc_ids.add(doc_id)
+                remote_workouts_map[doc_id] = {"profile_name": p_name, "start_time": s_time, "notes": w["notes"]}
+            else:
+                remote_data = remote_workouts_map.get(doc_id)
+                if remote_data:
+                    remote_notes = remote_data.get("notes") or ""
+                    local_notes = w["notes"] or ""
+                    if local_notes != remote_notes and local_notes:
+                        print(f"SyncClient: Updating remote workout notes for {doc_id}...")
+                        doc_ref = db_firestore.collection("workouts").document(doc_id)
+                        doc_ref.update({"notes": local_notes})
+                        remote_data["notes"] = local_notes
                 
-        # Download remote workouts that are missing locally
-        for doc in remote_workouts:
-            doc_id = doc.id
-            data = doc.to_dict()
+        # Download remote workouts that are missing locally or have updated notes
+        for doc_id, data in remote_workouts_map.items():
             p_name = data.get("profile_name")
             s_time = data.get("start_time")
             
-            c.execute("SELECT id FROM workouts WHERE profile_name = ? AND start_time = ?", (p_name, s_time))
-            if not c.fetchone():
+            c.execute("SELECT id, notes FROM workouts WHERE profile_name = ? AND start_time = ?", (p_name, s_time))
+            local_row = c.fetchone()
+            if not local_row:
                 print(f"SyncClient: Downloading workout {doc_id}...")
                 c.execute("""
                 INSERT INTO workouts (
@@ -238,6 +249,12 @@ def run_sync():
                         log.get("bpm"),
                         log.get("zone")
                     ))
+            else:
+                local_notes = local_row["notes"] or ""
+                remote_notes = data.get("notes") or ""
+                if local_notes != remote_notes and not local_notes and remote_notes:
+                    print(f"SyncClient: Downloading updated notes for {doc_id}...")
+                    c.execute("UPDATE workouts SET notes = ? WHERE id = ?", (remote_notes, local_row["id"]))
         conn.commit()
         conn.close()
         print("SyncClient: Database sync completed successfully.")
