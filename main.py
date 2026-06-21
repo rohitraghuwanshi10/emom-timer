@@ -143,7 +143,7 @@ class EMOMApp(ctk.CTk):
         self.total_rounds_var = ctk.StringVar(value="10")
         self.work_time_var = ctk.StringVar(value="60")
         self.rest_time_var = ctk.StringVar(value="0")
-        self.save_history_var = ctk.BooleanVar(value=True)
+        self.current_save_history = True
         self.notes_var = ctk.StringVar()
         self.template_var = ctk.StringVar(value="Select Template...")
         
@@ -288,6 +288,7 @@ class EMOMApp(ctk.CTk):
         self.current_max_hr = details.get("max_hr")
         self.current_max_prework_hr = details.get("max_prework_hr")
         self.current_auto_connect_hr = details.get("auto_connect_hr", True)
+        self.current_save_history = details.get("save_history", 1)
         
         if self.history_frame:
             self.history_frame.refresh(choice)
@@ -621,15 +622,7 @@ class EMOMApp(ctk.CTk):
         ToolTip(self.chk_auto_reg, "Extends rest period until HR drops below configured Max Pre-Work HR.")
 
 
-        # 5. Footer (History) -> Row 4
-        self.footer_frame = ctk.CTkFrame(workout_tab, fg_color="transparent")
-        self.footer_frame.grid(row=4, column=0, padx=20, pady=(0, 10), sticky="ew")
-        self.footer_frame.grid_columnconfigure(1, weight=1)
-
-        self.chk_history = ctk.CTkCheckBox(self.footer_frame, text="Save History", variable=self.save_history_var,
-                                           font=(FONT_FAMILY, 12), text_color=TEXT_SECONDARY,
-                                           fg_color=ACCENT_BLUE, hover_color=ACCENT_BLUE, border_color=TEXT_SECONDARY)
-        self.chk_history.grid(row=0, column=0, sticky="w")
+        # Note: Footer frame removed since Save History is now a profile-level setting
         
         # --- HISTORY TAB ---
         self.history_frame = HistoryFrame(self.tab_history, on_select_callback=self.show_details)
@@ -748,6 +741,12 @@ class EMOMApp(ctk.CTk):
         chk_auto_connect = ctk.CTkCheckBox(frm_auto_connect, text="Auto connect HR monitor", variable=auto_connect_var, font=(FONT_FAMILY, 12))
         chk_auto_connect.pack(side="left", padx=5)
 
+        # Save History
+        frm_save_history = create_row(tab_profile)
+        save_history_var = ctk.BooleanVar(value=details.get("save_history", 1))
+        chk_save_history = ctk.CTkCheckBox(frm_save_history, text="Save workout history", variable=save_history_var, font=(FONT_FAMILY, 12))
+        chk_save_history.pack(side="left", padx=5)
+
         def save_profile():
             try:
                 val = entry_max_hr.get().strip()
@@ -774,13 +773,20 @@ class EMOMApp(ctk.CTk):
                     except: pass
                 
                 storage.update_profile(current_profile, max_hr=max_hr, max_prework_hr=max_prework_hr,
-                                       sex=sex, birth_date=birth_date, weight_kg=weight_kg, weight_unit_pref=unit_pref, auto_connect_hr=auto_connect_hr)
+                                       sex=sex, birth_date=birth_date, weight_kg=weight_kg, weight_unit_pref=unit_pref, 
+                                       auto_connect_hr=auto_connect_hr, save_history=save_history_var.get())
                                        
                 self.current_max_hr = max_hr 
                 self.current_max_prework_hr = max_prework_hr
                 self.current_auto_connect_hr = auto_connect_hr
+                self.current_save_history = save_history_var.get()
                 dialog.destroy()
                 print(f"Saved Settings for {current_profile}")
+                
+                # Trigger sync in background thread
+                import threading
+                import sync_client
+                threading.Thread(target=sync_client.run_sync, daemon=True).start()
             except ValueError:
                 print("Invalid input")
 
@@ -1249,7 +1255,7 @@ class EMOMApp(ctk.CTk):
 
 
     def save_history(self, completed_rounds):
-        if not self.save_history_var.get():
+        if not getattr(self, "current_save_history", True):
             return
 
         try:

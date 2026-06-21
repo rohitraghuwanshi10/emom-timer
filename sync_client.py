@@ -58,7 +58,8 @@ def run_sync():
                 "birth_date": lp["birth_date"],
                 "weight_kg": lp["weight_kg"],
                 "weight_unit_pref": lp["weight_unit_pref"],
-                "auto_connect_hr": lp["auto_connect_hr"]
+                "auto_connect_hr": lp["auto_connect_hr"],
+                "save_history": lp.get("save_history", 1)
             }, merge=True)
             
         # Download remote from Firestore
@@ -70,8 +71,8 @@ def run_sync():
             if not c.fetchone():
                 print(f"SyncClient: Downloading profile '{p_name}'...")
                 c.execute("""
-                INSERT INTO profiles (name, created_at, max_hr, max_prework_hr, sex, birth_date, weight_kg, weight_unit_pref, auto_connect_hr)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO profiles (name, created_at, max_hr, max_prework_hr, sex, birth_date, weight_kg, weight_unit_pref, auto_connect_hr, save_history)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     p_name,
                     data.get("created_at"),
@@ -81,13 +82,14 @@ def run_sync():
                     data.get("birth_date"),
                     data.get("weight_kg"),
                     data.get("weight_unit_pref"),
-                    data.get("auto_connect_hr")
+                    data.get("auto_connect_hr"),
+                    data.get("save_history", 1)
                 ))
             else:
                 # Update settings locally in case they changed on iPad
                 c.execute("""
                 UPDATE profiles SET 
-                    max_hr = ?, max_prework_hr = ?, sex = ?, birth_date = ?, weight_kg = ?, weight_unit_pref = ?, auto_connect_hr = ?
+                    max_hr = ?, max_prework_hr = ?, sex = ?, birth_date = ?, weight_kg = ?, weight_unit_pref = ?, auto_connect_hr = ?, save_history = ?
                 WHERE name = ?
                 """, (
                     data.get("max_hr"),
@@ -97,6 +99,7 @@ def run_sync():
                     data.get("weight_kg"),
                     data.get("weight_unit_pref"),
                     data.get("auto_connect_hr"),
+                    data.get("save_history", 1),
                     p_name
                 ))
         conn.commit()

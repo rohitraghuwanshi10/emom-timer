@@ -96,7 +96,9 @@ def _init_db_with_connection(conn):
             birth_date TEXT,
             weight_kg REAL,
             weight_unit_pref TEXT,
-            auto_connect_hr INTEGER
+            auto_connect_hr INTEGER,
+            health_enabled INTEGER DEFAULT 0,
+            save_history INTEGER DEFAULT 1
         )
         """)
         
@@ -154,6 +156,16 @@ def _init_db_with_connection(conn):
         """)
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_hr_logs_workout_id ON heart_rate_logs(workout_id)")
         
+        # Dynamically add newer columns to existing installations
+        try:
+            cursor.execute("ALTER TABLE profiles ADD COLUMN health_enabled INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            cursor.execute("ALTER TABLE profiles ADD COLUMN save_history INTEGER DEFAULT 1")
+        except sqlite3.OperationalError:
+            pass
+            
         conn.commit()
     except Exception as e:
         print(f"Error initializing database tables: {e}")
@@ -196,7 +208,7 @@ def add_profile(profile_name, max_hr=None, max_prework_hr=None, sex=None, birth_
         
     return f"{profile_name.lower().replace(' ', '_')}_workout_history.csv"
 
-def update_profile(profile_name, max_hr=None, max_prework_hr=None, sex=None, birth_date=None, weight_kg=None, weight_unit_pref=None, auto_connect_hr=None):
+def update_profile(profile_name, max_hr=None, max_prework_hr=None, sex=None, birth_date=None, weight_kg=None, weight_unit_pref=None, auto_connect_hr=None, health_enabled=None, save_history=None):
     conn = get_db_connection()
     try:
         c = conn.cursor()
@@ -223,6 +235,12 @@ def update_profile(profile_name, max_hr=None, max_prework_hr=None, sex=None, bir
         if auto_connect_hr is not None:
             updates.append("auto_connect_hr = ?")
             params.append(1 if auto_connect_hr else 0)
+        if health_enabled is not None:
+            updates.append("health_enabled = ?")
+            params.append(1 if health_enabled else 0)
+        if save_history is not None:
+            updates.append("save_history = ?")
+            params.append(1 if save_history else 0)
             
         if updates:
             params.append(profile_name)
@@ -251,6 +269,8 @@ def get_profile_details(profile_name):
             d.setdefault("birth_date", None)
             d.setdefault("weight_kg", None)
             d.setdefault("weight_unit_pref", "kg")
+            d.setdefault("health_enabled", 0)
+            d.setdefault("save_history", 1)
             return d
         return {}
     except Exception as e:
